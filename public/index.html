@@ -4,51 +4,69 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Netlify MCP Gateway</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-          sans-serif;
-        max-width: 800px;
-        margin: 50px auto;
-        padding: 20px;
-        line-height: 1.6;
-      }
-      h1 {
-        color: #00c7b7;
-      }
-      .endpoint {
-        background: #f4f4f4;
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 5px;
-        font-family: monospace;
-      }
-      .status {
-        color: #00c7b7;
-        font-weight: bold;
-      }
-    </style>
+    <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <h1>🚀 Netlify MCP Gateway</h1>
-    <p class="status">✓ Online</p>
+    <div class="container">
+      <header class="header">
+        <div class="logo">MCP</div>
+        <div>
+          <h1>Netlify MCP Gateway</h1>
+          <div class="tagline">Simple edge gateway for MCP integrations</div>
+        </div>
+        <div style="margin-left:auto">
+          <span class="status">✓ Online</span>
+        </div>
+      </header>
 
-    <h2>Available Endpoints</h2>
-    <div class="endpoint">GET /mcp/tools/list</div>
-    <div class="endpoint">POST /mcp/tools/call</div>
-    <div class="endpoint">GET /mcp/resources/list</div>
-    <div class="endpoint">POST /mcp/resources/read</div>
-    <div class="endpoint">GET /mcp/prompts/list</div>
-    <div class="endpoint">POST /mcp/prompts/get</div>
-    <div class="endpoint">GET /health</div>
+      <section class="hero">
+        <strong>Available Endpoints</strong>
+        <div class="grid">
+          <div class="card"><div class="endpoint">GET /mcp/tools/list</div></div>
+          <div class="card"><div class="endpoint">POST /mcp/tools/call</div></div>
+          <div class="card"><div class="endpoint">GET /mcp/resources/list</div></div>
+          <div class="card"><div class="endpoint">POST /mcp/resources/read</div></div>
+          <div class="card"><div class="endpoint">GET /mcp/prompts/list</div></div>
+          <div class="card"><div class="endpoint">POST /mcp/prompts/get</div></div>
+          <div class="card"><div class="endpoint">GET /health</div></div>
+        </div>
+      </section>
 
-    <h2>Documentation</h2>
-    <p>
-      See
-      <a href="https://github.com/schlpbch/netlify-mcp-gateway"
-        >GitHub Repository</a
-      >
-      for full documentation.
-    </p>
+      <section class="hero" style="margin-top:18px;padding:18px">
+        <strong>Try the API</strong>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+          <button id="btn-tools" class="button">GET /mcp/tools/list</button>
+          <button id="btn-resources" class="button">GET /mcp/resources/list</button>
+          <button id="btn-prompts" class="button">GET /mcp/prompts/list</button>
+          <button id="btn-health" class="button">GET /mcp/health</button>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <form id="post-form" style="flex:1;min-width:260px">
+            <label style="display:block;margin-bottom:6px;color:var(--muted)">POST endpoint (e.g. /mcp/tools/call)</label>
+            <input id="post-endpoint" type="text" value="/mcp/tools/call" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+            <label style="display:block;margin:8px 0 6px;color:var(--muted)">JSON body</label>
+            <textarea id="post-body" placeholder='{"tool":"echo","input":"hello"}' style="width:100%;min-height:120px;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit"></textarea>
+            <div style="margin-top:8px">
+              <button type="submit" class="button">Send POST</button>
+            </div>
+          </form>
+
+          <div style="flex:1;min-width:260px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <strong style="flex:1">Response</strong>
+              <div id="net-status" class="tagline" style="font-weight:600"></div>
+            </div>
+            <pre id="response" style="margin-top:8px;padding:12px;border-radius:8px;background:rgba(0,0,0,0.25);min-height:220px;overflow:auto;color:#d7f9f6"></pre>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        <strong>Documentation:</strong>
+        <a href="https://github.com/schlpbch/netlify-mcp-gateway" class="button">GitHub Repository</a>
+      </div>
+    </div>
+    <script src="/app.js" defer></script>
   </body>
 </html>
