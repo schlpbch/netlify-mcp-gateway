@@ -1,0 +1,9 @@
+[build]
+  publish = "public"
+
+[[edge_functions]]
+  function = "mcp"
+  path = "/mcp/*"
+
+[dev]
+  port = 8888

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Netlify MCP Gateway</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #00c7b7;
+      }
+      .endpoint {
+        background: #f4f4f4;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        font-family: monospace;
+      }
+      .status {
+        color: #00c7b7;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🚀 Netlify MCP Gateway</h1>
+    <p class="status">✓ Online</p>
+
+    <h2>Available Endpoints</h2>
+    <div class="endpoint">GET /mcp/tools/list</div>
+    <div class="endpoint">POST /mcp/tools/call</div>
+    <div class="endpoint">GET /mcp/resources/list</div>
+    <div class="endpoint">POST /mcp/resources/read</div>
+    <div class="endpoint">GET /mcp/prompts/list</div>
+    <div class="endpoint">POST /mcp/prompts/get</div>
+    <div class="endpoint">GET /health</div>
+
+    <h2>Documentation</h2>
+    <p>
+      See
+      <a href="https://github.com/schlpbch/netlify-mcp-gateway"
+        >GitHub Repository</a
+      >
+      for full documentation.
+    </p>
+  </body>
+</html>

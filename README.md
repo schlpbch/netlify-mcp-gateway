@@ -1,136 +1,235 @@
-# SBB MCP Gateway
+# Netlify MCP Gateway
 
-The **SBB MCP Gateway** is a unified entry point for AI assistants (like Claude) to access the federated Model Context Protocol (MCP) servers within the Swiss Travel Companion ecosystem.
+**Unified MCP Gateway** deployed on Netlify Edge Functions, providing a single entry point for AI assistants to access federated Model Context Protocol (MCP) servers.
 
-It provides a single connection point that intelligently routes requests to:
+## 🚀 Features
 
-- `journey-service-mcp` (Trip planning, pricing)
-- `swiss-mobility-mcp` (Shared mobility)
-- `aareguru-mcp` (Aare river safety)
-- `open-meteo-mcp` (Weather data)
+- **Global Edge Deployment**: Sub-50ms latency worldwide via Netlify Edge
+- **Intelligent Routing**: Namespace-based routing to backend servers
+- **Persistent Caching**: Two-tier cache (memory + Netlify Blobs)
+- **Health Monitoring**: Automatic health checks and failover
+- **Retry Logic**: Exponential backoff for resilient backend calls
+- **TypeScript**: Fully typed with Deno runtime
 
-## 🚀 Key Features
+## 🏗️ Architecture
 
-- **Unified Discovery**: Aggregates tools, resources, and prompts from all backend servers.
-- **Intelligent Routing**: Routes requests based on namespaced identifiers (e.g., `journey.findTrips`).
-- **Response Caching**: In-memory caffeine caching for high-performance tool execution.
-- **Health Monitoring**: Automatically detects and isolates unhealthy backend servers.
-- **Resilience**: Built-in retry logic and failover handling.
-- **Lombok-Free**: Built with modern Java 21 records and standard libraries for maximum stability.
+```text
+Claude Desktop
+     ↓
+Netlify Edge Functions (Global)
+     ↓
+MCP Gateway
+     ├── journey-service-mcp
+     ├── swiss-mobility-mcp
+     ├── aareguru-mcp
+     └── open-meteo-mcp
+```
+
+### Namespace Routing
+
+Tools and prompts are namespaced to avoid collisions:
+
+- `journey.*` → Journey Service MCP
+- `mobility.*` → Swiss Mobility MCP
+- `aareguru.*` → Aareguru MCP
+- `meteo.*` / `weather.*` → Open Meteo MCP
+
+Example: `journey.findTrips` routes to Journey Service's `findTrips` tool.
 
 ## 🛠️ Technology Stack
 
-- **Java 21 LTS**
-- **Spring Boot 3.4**
-- **Caffeine** (In-memory caching)
-- **Spring Retry**
-- **Maven** (Build tool)
-- **Google Cloud Run** (Deployment target)
+- **Runtime**: Deno (via Netlify Edge Functions)
+- **Language**: TypeScript 5.x (strict mode)
+- **Caching**: Netlify Blobs + in-memory
+- **Deployment**: Netlify Edge Functions
 
 ## 📋 Prerequisites
 
-- Java 21 SDK
-- Maven 3.9+
-- Docker (optional, for containerization)
+- [Deno](https://deno.land/) installed
+- [Netlify CLI](https://docs.netlify.com/cli/get-started/) installed
+- Netlify account
 
-## 🏃‍♂️ Quick Start
+## 🏃 Quick Start
 
-### 1. Build the Project
-
-```bash
-mvn clean install
-```
-
-### 2. Run Locally
+### 1. Install Dependencies
 
 ```bash
-mvn spring-boot:run
+# Install pnpm globally (if not already installed)
+npm install -g pnpm
+
+# Install Netlify CLI globally
+pnpm add -g netlify-cli
+
+# Install Deno (Windows PowerShell)
+irm https://deno.land/install.ps1 | iex
 ```
 
-The gateway will start on port `8080`.
+### 2. Configure Environment
 
-### 3. Usage with Claude Desktop
+Copy `.env.example` to `.env` and configure backend URLs:
 
-Add the gateway to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "sbb-gateway": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "gcr.io/sbb-mcp-gateway/mcp-gateway:latest"
-      ]
-    }
-  }
-}
+```bash
+cp .env.example .env
 ```
 
-*Note: For local development, you can point to the local process if running via stdio transport.*
+### 3. Run Locally
 
-## ⚙️ Configuration
+```bash
+netlify dev
+```
 
-Configuration is managed via `application.yml` and environment variables.
+The gateway will be available at `http://localhost:8888/mcp/*`
+
+### 4. Test Endpoints
+
+```bash
+# List tools
+curl http://localhost:8888/mcp/tools/list
+
+# Call a tool
+curl -X POST http://localhost:8888/mcp/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{"name":"journey.findTrips","arguments":{"from":"Bern","to":"Zurich"}}'
+
+# Health check
+curl http://localhost:8888/health
+```
+
+## 🚀 Deployment
+
+### Deploy to Netlify
+
+```bash
+# Login to Netlify
+netlify login
+
+# Deploy to production
+netlify deploy --prod
+```
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JOURNEY_SERVICE_URL` | URL for Journey Service MCP | `http://journey-service:8080/mcp` |
-| `SWISS_MOBILITY_URL` | URL for Swiss Mobility MCP | `http://swiss-mobility:8080/mcp` |
-| `AAREGURU_URL` | URL for Aareguru MCP | `http://aareguru:8000/mcp` |
-| `OPEN_METEO_URL` | URL for Open-Meteo MCP | `http://open-meteo:8000/mcp` |
-| `LOG_LEVEL` | Application logging level | `INFO` |
+Configure these in Netlify UI (Site settings → Environment variables):
 
-### Caching Configuration
-
-```yaml
-mcp:
-  gateway:
-    cache:
-      default-ttl: 5m
-      max-size: 10000
-```
+- `JOURNEY_SERVICE_URL`
+- `SWISS_MOBILITY_URL`
+- `AAREGURU_URL`
+- `OPEN_METEO_URL`
 
 ## 🔌 API Endpoints
 
 ### MCP Protocol
 
-- `POST /mcp/tools/call` - Execute a tool
 - `GET /mcp/tools/list` - List available tools
-- `POST /mcp/resources/read` - Read a resource
+- `POST /mcp/tools/call` - Execute a tool
 - `GET /mcp/resources/list` - List available resources
-- `POST /mcp/prompts/get` - Get a prompt
+- `POST /mcp/resources/read` - Read a resource
 - `GET /mcp/prompts/list` - List available prompts
+- `POST /mcp/prompts/get` - Get a prompt
 
-### Actuator
+### Health
 
-- `GET /actuator/health` - Health check status
-- `GET /actuator/info` - Application info
-- `GET /actuator/prometheus` - Prometheus metrics
-
-## 🏗️ Architecture
-
-The gateway uses a **Hub-and-Spoke** architecture where it acts as the central hub.
-
-### Name Resolution
-
-Tools and prompts are namespaced to avoid collisions:
-
-- `journey.*` -> Journey Service
-- `mobility.*` -> Swiss Mobility
-- `aareguru.*` -> Aareguru
-- `meteo.*` -> Open Meteo
-
-Example: `journey.findTrips` is routed to the Journey Service `findTrips` tool.
+- `GET /health` - Gateway health status
 
 ## 🧪 Testing
 
-Run unit and integration tests:
-
 ```bash
-mvn test
+# Run Deno tests
+deno test --allow-net --allow-env
+
+# Lint code
+deno lint src/ netlify/
+
+# Format code
+deno fmt src/ netlify/
 ```
+
+## 📁 Project Structure
+
+```text
+netlify-mcp-gateway/
+├── netlify/
+│   └── edge-functions/
+│       └── mcp.ts              # Main edge function
+├── src/
+│   ├── types/
+│   │   ├── server.ts           # Server types
+│   │   ├── mcp.ts              # MCP protocol types
+│   │   └── config.ts           # Configuration types
+│   ├── registry/
+│   │   ├── ServerRegistry.ts   # Server registration
+│   │   └── NamespaceResolver.ts # Namespace routing
+│   ├── client/
+│   │   └── BackendMcpClient.ts # HTTP client with retry
+│   ├── cache/
+│   │   └── ResponseCache.ts    # Two-tier caching
+│   ├── routing/
+│   │   └── IntelligentRouter.ts # Cache-aware routing
+│   ├── protocol/
+│   │   └── McpProtocolHandler.ts # MCP protocol handler
+│   ├── config.ts               # Configuration loader
+│   └── init.ts                 # Gateway initialization
+├── deno.json                   # Deno configuration
+├── netlify.toml                # Netlify configuration
+└── package.json                # NPM scripts
+```
+
+## ⚙️ Configuration
+
+### Cache TTL
+
+The gateway uses dynamic TTL based on data characteristics:
+
+- **Static data** (locations, stations): 1 hour
+- **Real-time data** (trips, weather): 1 minute
+- **Default**: 5 minutes
+
+### Retry Policy
+
+- Max attempts: 3
+- Backoff delay: 100ms
+- Backoff multiplier: 2.0
+- Max delay: 2s
+
+## 🔒 Security
+
+Current implementation:
+
+- Public access (no authentication)
+- HTTPS enforced by Netlify
+- No rate limiting
+
+**Recommended for production:**
+
+- Add API key authentication
+- Implement rate limiting
+- Add request validation
+- Monitor usage patterns
+
+## 📊 Monitoring
+
+Key metrics to monitor:
+
+- Request count and latency (P50, P95, P99)
+- Cache hit rate
+- Backend health status
+- Error rate by endpoint
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+## 📝 License
+
+MIT
+
+## 🔗 Related Projects
+
+- [journey-service-mcp](https://github.com/schlpbch/journey-service-mcp)
+- [swiss-mobility-mcp](https://github.com/schlpbch/swiss-mobility-mcp)
+- [aareguru-mcp](https://github.com/schlpbch/aareguru-mcp)
+- [open-meteo-mcp](https://github.com/schlpbch/open-meteo-mcp)

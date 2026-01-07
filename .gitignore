@@ -1,6 +1,9 @@
-target/
-.idea/
-*.iml
-.vscode/
+.netlify/
+node_modules/
 .env
+.env.local
 *.log
+.DS_Store
+dist/
+pnpm-lock.yaml
+.pnpm-store/

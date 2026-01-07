@@ -24,8 +24,8 @@ Thank you for your interest in contributing to the MCP Gateway! This document pr
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/your-org/sbb-mcp-gateway.git
-cd sbb-mcp-gateway
+git clone https://github.com/schlpbch/netlify-mcp-gateway.git
+cd netlify-mcp-gateway
 ```
 
 1. **Build the Project**
@@ -49,7 +49,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ## Project Structure
 
 ```
-sbb-mcp-gateway/
+netlify-mcp-gateway/
 ├── src/
 │   ├── main/
 │   │   ├── java/ch/sbb/mcp/gateway/
