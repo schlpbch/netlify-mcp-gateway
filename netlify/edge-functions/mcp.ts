@@ -54,18 +54,52 @@ export default async (request: Request, context: Context) => {
       });
     }
 
-    // Health check endpoint
-    if (path === '/health' && request.method === 'GET') {
+    // Health check endpoint (supports both /mcp/health and /health)
+    if ((path === '/mcp/health' || path === '/health') && request.method === 'GET') {
       const servers = gateway.registry.listServers();
+
+      // Check health of each server in parallel
+      const healthChecks = await Promise.allSettled(
+        servers.map(async (server) => {
+          const health = await gateway.client.checkHealth(server);
+          return { server, health };
+        })
+      );
+
+      const serverStatuses = healthChecks.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          const { server, health } = result.value;
+          return {
+            id: server.id,
+            name: server.name,
+            endpoint: server.endpoint,
+            status: health.status,
+            latency: health.latency,
+            lastCheck: health.lastCheck,
+            errorMessage: health.errorMessage,
+          };
+        } else {
+          const server = servers[index];
+          return {
+            id: server.id,
+            name: server.name,
+            endpoint: server.endpoint,
+            status: 'DOWN',
+            latency: 0,
+            errorMessage: result.reason?.message || 'Health check failed',
+          };
+        }
+      });
+
+      const allHealthy = serverStatuses.every((s) => s.status === 'HEALTHY');
+      const anyHealthy = serverStatuses.some((s) => s.status === 'HEALTHY');
+
       const healthStatus = {
-        status: 'UP',
-        servers: servers.map((s) => ({
-          id: s.id,
-          name: s.name,
-          status: s.health.status,
-          latency: s.health.latency,
-        })),
+        status: allHealthy ? 'UP' : anyHealthy ? 'DEGRADED' : 'DOWN',
+        timestamp: new Date().toISOString(),
+        servers: serverStatuses,
       };
+
       return new Response(JSON.stringify(healthStatus), {
         headers: { 'Content-Type': 'application/json' },
       });
