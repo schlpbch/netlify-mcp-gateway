@@ -1,5 +1,10 @@
 const statusEl = document.getElementById('net-status');
-const responseEl = document.getElementById('response');
+const formattedEl = document.getElementById('response-formatted');
+const rawEl = document.getElementById('response-raw');
+const toggleRawBtn = document.getElementById('toggle-raw');
+
+let currentResponse = null;
+let showRaw = false;
 
 function setStatus(text, isLoading = false) {
   if (!statusEl) return;
@@ -8,14 +13,317 @@ function setStatus(text, isLoading = false) {
   statusEl.classList.toggle('text-slate-500', !isLoading);
 }
 
-function show(obj) {
-  if (!responseEl) return;
-  responseEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+function toggleRawView() {
+  showRaw = !showRaw;
+  if (formattedEl && rawEl && toggleRawBtn) {
+    formattedEl.classList.toggle('hidden', showRaw);
+    rawEl.classList.toggle('hidden', !showRaw);
+    toggleRawBtn.textContent = showRaw ? 'Formatted' : 'Raw';
+  }
+}
+
+function showRawJson(obj) {
+  if (!rawEl) return;
+  rawEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+}
+
+function getStatusColor(status) {
+  switch (status?.toUpperCase()) {
+    case 'HEALTHY':
+    case 'UP':
+      return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+    case 'DEGRADED':
+      return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30';
+    case 'DOWN':
+    case 'ERROR':
+      return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30';
+    default:
+      return 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800';
+  }
+}
+
+function getStatusIcon(status) {
+  switch (status?.toUpperCase()) {
+    case 'HEALTHY':
+    case 'UP':
+      return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+    case 'DEGRADED':
+      return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+    case 'DOWN':
+    case 'ERROR':
+      return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+    default:
+      return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+  }
+}
+
+function renderHealth(data) {
+  const body = data.body || data;
+  const servers = body.servers || [];
+  const overallStatus = body.status || 'UNKNOWN';
+  const timestamp = body.timestamp ? new Date(body.timestamp).toLocaleString() : '';
+
+  let html = `
+    <div class="space-y-4">
+      <!-- Overall Status -->
+      <div class="flex items-center justify-between p-3 rounded-lg ${getStatusColor(overallStatus)}">
+        <div class="flex items-center gap-2">
+          ${getStatusIcon(overallStatus)}
+          <span class="font-semibold">Gateway Status: ${overallStatus}</span>
+        </div>
+        <span class="text-xs opacity-75">${timestamp}</span>
+      </div>
+
+      <!-- Server List -->
+      <div class="space-y-2">
+        <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Backend Servers</h4>
+        <div class="grid gap-2">
+  `;
+
+  servers.forEach(server => {
+    const statusColor = getStatusColor(server.status);
+    html += `
+      <div class="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${statusColor}">
+              ${getStatusIcon(server.status)}
+              ${server.status}
+            </span>
+            <span class="font-medium text-slate-900 dark:text-white">${server.name}</span>
+          </div>
+          <span class="text-xs text-slate-500">${server.latency}ms</span>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-mono truncate">${server.endpoint}</p>
+        ${server.errorMessage ? `<p class="text-xs text-red-500 dark:text-red-400 mt-1">${server.errorMessage}</p>` : ''}
+      </div>
+    `;
+  });
+
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  return html;
+}
+
+function renderTools(data) {
+  const body = data.body || data;
+  const tools = body.tools || [];
+
+  if (tools.length === 0) {
+    return '<p class="text-slate-500 dark:text-slate-400">No tools available</p>';
+  }
+
+  // Group tools by namespace
+  const grouped = {};
+  tools.forEach(tool => {
+    const [namespace] = tool.name.split('.');
+    if (!grouped[namespace]) grouped[namespace] = [];
+    grouped[namespace].push(tool);
+  });
+
+  let html = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-slate-600 dark:text-slate-400">${tools.length} tools available</span>
+      </div>
+  `;
+
+  Object.entries(grouped).forEach(([namespace, nsTools]) => {
+    html += `
+      <div class="space-y-2">
+        <h4 class="text-xs font-semibold text-accent uppercase tracking-wide flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-accent"></span>
+          ${namespace} (${nsTools.length})
+        </h4>
+        <div class="grid gap-2">
+    `;
+
+    nsTools.forEach(tool => {
+      const shortName = tool.name.split('.').slice(1).join('.');
+      const summary = tool.summary || tool.description?.split('\n')[0] || '';
+      html += `
+        <div class="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-accent/50 transition-colors cursor-pointer tool-card" data-tool='${JSON.stringify(tool)}'>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <h5 class="font-medium text-slate-900 dark:text-white text-sm">${shortName}</h5>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${summary.substring(0, 150)}${summary.length > 150 ? '...' : ''}</p>
+            </div>
+            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function renderResources(data) {
+  const body = data.body || data;
+  const resources = body.resources || [];
+
+  if (resources.length === 0) {
+    return '<p class="text-slate-500 dark:text-slate-400">No resources available</p>';
+  }
+
+  let html = `
+    <div class="space-y-3">
+      <span class="text-sm font-medium text-slate-600 dark:text-slate-400">${resources.length} resources available</span>
+      <div class="grid gap-2">
+  `;
+
+  resources.forEach(resource => {
+    html += `
+      <div class="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <h5 class="font-medium text-slate-900 dark:text-white text-sm">${resource.name || resource.uri}</h5>
+        ${resource.description ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${resource.description}</p>` : ''}
+        ${resource.uri ? `<p class="text-xs text-accent font-mono mt-1">${resource.uri}</p>` : ''}
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderPrompts(data) {
+  const body = data.body || data;
+  const prompts = body.prompts || [];
+
+  if (prompts.length === 0) {
+    return '<p class="text-slate-500 dark:text-slate-400">No prompts available</p>';
+  }
+
+  // Group prompts by namespace
+  const grouped = {};
+  prompts.forEach(prompt => {
+    const [namespace] = prompt.name.split('.');
+    if (!grouped[namespace]) grouped[namespace] = [];
+    grouped[namespace].push(prompt);
+  });
+
+  let html = `
+    <div class="space-y-4">
+      <span class="text-sm font-medium text-slate-600 dark:text-slate-400">${prompts.length} prompts available</span>
+  `;
+
+  Object.entries(grouped).forEach(([namespace, nsPrompts]) => {
+    html += `
+      <div class="space-y-2">
+        <h4 class="text-xs font-semibold text-accent uppercase tracking-wide flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-accent"></span>
+          ${namespace} (${nsPrompts.length})
+        </h4>
+        <div class="grid gap-2">
+    `;
+
+    nsPrompts.forEach(prompt => {
+      const shortName = prompt.name.split('.').slice(1).join('.');
+      html += `
+        <div class="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+          <h5 class="font-medium text-slate-900 dark:text-white text-sm">${shortName}</h5>
+          ${prompt.description ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${prompt.description.substring(0, 150)}${prompt.description.length > 150 ? '...' : ''}</p>` : ''}
+        </div>
+      `;
+    });
+
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function renderError(data) {
+  const error = data.error || data.body?.error || 'Unknown error';
+  return `
+    <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+      <div class="flex items-center gap-2 text-red-600 dark:text-red-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="font-medium">Error</span>
+      </div>
+      <p class="mt-2 text-sm text-red-600 dark:text-red-400">${error}</p>
+    </div>
+  `;
+}
+
+function renderGeneric(data) {
+  const body = data.body || data;
+  return `
+    <div class="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+      <pre class="text-xs text-slate-700 dark:text-slate-300 font-mono whitespace-pre-wrap">${JSON.stringify(body, null, 2)}</pre>
+    </div>
+  `;
+}
+
+function show(obj, endpoint = '') {
+  currentResponse = obj;
+  showRawJson(obj);
+
+  if (!formattedEl) return;
+
+  // Detect response type and render appropriately
+  let html = '';
+
+  if (obj.error) {
+    html = renderError(obj);
+  } else if (endpoint.includes('/health') || obj.body?.servers) {
+    html = renderHealth(obj);
+  } else if (endpoint.includes('/tools/list') || obj.body?.tools) {
+    html = renderTools(obj);
+  } else if (endpoint.includes('/resources/list') || obj.body?.resources) {
+    html = renderResources(obj);
+  } else if (endpoint.includes('/prompts/list') || obj.body?.prompts) {
+    html = renderPrompts(obj);
+  } else {
+    html = renderGeneric(obj);
+  }
+
+  formattedEl.innerHTML = html;
+
+  // Add click handlers for tool cards
+  document.querySelectorAll('.tool-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const tool = JSON.parse(card.dataset.tool);
+      const endpointInput = document.getElementById('post-endpoint');
+      const bodyInput = document.getElementById('post-body');
+      if (endpointInput && bodyInput) {
+        endpointInput.value = '/mcp/tools/call';
+        const args = {};
+        if (tool.inputSchema?.properties) {
+          Object.entries(tool.inputSchema.properties).forEach(([key, schema]) => {
+            if (schema.default !== undefined) {
+              args[key] = schema.default;
+            } else if (tool.inputSchema.required?.includes(key)) {
+              args[key] = schema.type === 'string' ? '' : schema.type === 'number' ? 0 : null;
+            }
+          });
+        }
+        bodyInput.value = JSON.stringify({ name: tool.name, arguments: args }, null, 2);
+      }
+    });
+  });
 }
 
 async function callGet(path) {
   setStatus('Loading...', true);
-  show('');
+  show({ status: 'loading' }, path);
+  formattedEl.innerHTML = '<div class="flex items-center justify-center h-32"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div></div>';
+
   try {
     const res = await fetch(path, { cache: 'no-store' });
     const ct = res.headers.get('content-type') || '';
@@ -25,16 +333,17 @@ async function callGet(path) {
     } else {
       body = await res.text();
     }
-    show({ status: res.status, body });
+    show({ status: res.status, body }, path);
   } catch (err) {
-    show({ error: err.message });
+    show({ error: err.message }, path);
   }
   setStatus('Ready');
 }
 
 async function callPost(path, data) {
   setStatus('Loading...', true);
-  show('');
+  formattedEl.innerHTML = '<div class="flex items-center justify-center h-32"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div></div>';
+
   try {
     const res = await fetch(path, {
       method: 'POST',
@@ -48,17 +357,17 @@ async function callPost(path, data) {
     } else {
       body = await res.text();
     }
-    show({ status: res.status, body });
+    show({ status: res.status, body }, path);
   } catch (err) {
-    show({ error: err.message });
+    show({ error: err.message }, path);
   }
   setStatus('Ready');
 }
 
 async function copyToClipboard() {
-  if (!responseEl || !responseEl.textContent) return;
+  if (!rawEl || !rawEl.textContent) return;
   try {
-    await navigator.clipboard.writeText(responseEl.textContent);
+    await navigator.clipboard.writeText(rawEl.textContent);
     const copyBtn = document.getElementById('copy-response');
     if (copyBtn) {
       const originalLabel = copyBtn.getAttribute('aria-label');
@@ -109,6 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
       setTheme(e.matches ? 'dark' : 'light');
     }
   });
+
+  // Raw/Formatted toggle
+  toggleRawBtn?.addEventListener('click', toggleRawView);
 
   // GET buttons
   document.getElementById('btn-tools')?.addEventListener('click', () => callGet('/mcp/tools/list'));
