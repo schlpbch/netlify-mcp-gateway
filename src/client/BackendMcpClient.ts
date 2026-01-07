@@ -8,202 +8,25 @@ import type {
   McpToolCallResponse,
 } from '../types/mcp.ts';
 import type { RoutingConfig } from '../types/config.ts';
-import { HealthStatus } from '../types/server.ts';
-
-interface JsonRpcRequest {
-  jsonrpc: '2.0';
-  method: string;
-  params?: Record<string, unknown>;
-  id: number;
-}
-
-interface JsonRpcResponse<T> {
-  jsonrpc: '2.0';
-  id: number;
-  result?: T;
-  error?: { code: number; message: string };
-}
+import { SessionManager } from './SessionManager.ts';
+import { JsonRpcClient } from './JsonRpcClient.ts';
+import { HealthChecker } from './HealthChecker.ts';
 
 /**
  * HTTP client for communicating with backend MCP servers using JSON-RPC.
+ * Orchestrates session management, JSON-RPC communication, and health checks.
+ *
  * Supports both stateless and session-based (Streamable HTTP) MCP transports.
  */
 export class BackendMcpClient {
-  private requestId = 0;
-  private sessions: Map<string, string> = new Map(); // serverId -> sessionId
+  private sessionManager: SessionManager;
+  private jsonRpcClient: JsonRpcClient;
+  private healthChecker: HealthChecker;
 
-  constructor(private config: RoutingConfig) {}
-
-  /**
-   * Initialize a session with a backend server (for Streamable HTTP transport)
-   */
-  private async initializeSession(
-    serverId: string,
-    endpoint: string,
-    timeoutMs?: number
-  ): Promise<string | null> {
-    const request: JsonRpcRequest = {
-      jsonrpc: '2.0',
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: { name: 'netlify-mcp-gateway', version: '1.0.0' },
-      },
-      id: ++this.requestId,
-    };
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json, text/event-stream',
-        },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(timeoutMs || this.config.timeout.connect),
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      // Check for session ID in response header
-      const sessionId = response.headers.get('mcp-session-id');
-      if (sessionId) {
-        this.sessions.set(serverId, sessionId);
-        console.log(`Initialized session for ${serverId}: ${sessionId}`);
-      }
-
-      return sessionId;
-    } catch (error) {
-      console.warn(`Failed to initialize session for ${serverId}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Get or create a session for a server
-   */
-  private async getSession(
-    serverId: string,
-    endpoint: string,
-    timeoutMs?: number
-  ): Promise<string | null> {
-    // Return existing session if available
-    const existingSession = this.sessions.get(serverId);
-    if (existingSession) {
-      return existingSession;
-    }
-
-    // Try to initialize a new session
-    return await this.initializeSession(serverId, endpoint, timeoutMs);
-  }
-
-  /**
-   * Send JSON-RPC request and parse SSE response
-   */
-  private async sendJsonRpc<T>(
-    endpoint: string,
-    method: string,
-    params?: Record<string, unknown>,
-    timeoutMs?: number,
-    serverId?: string
-  ): Promise<T> {
-    const request: JsonRpcRequest = {
-      jsonrpc: '2.0',
-      method,
-      params,
-      id: ++this.requestId,
-    };
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-    };
-
-    // Add session ID if server requires it
-    if (serverId) {
-      const sessionId = await this.getSession(serverId, endpoint, timeoutMs);
-      if (sessionId) {
-        headers['Mcp-Session-Id'] = sessionId;
-      }
-    }
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(timeoutMs || this.config.timeout.read),
-    });
-
-    if (!response.ok) {
-      // If we get a session error, clear the session and retry once
-      if (serverId && response.status === 400) {
-        const text = await response.text();
-        if (text.includes('Mcp-Session-Id') || text.includes('session')) {
-          console.log(`Session expired for ${serverId}, re-initializing...`);
-          this.sessions.delete(serverId);
-          const newSessionId = await this.initializeSession(serverId, endpoint, timeoutMs);
-          if (newSessionId) {
-            headers['Mcp-Session-Id'] = newSessionId;
-            const retryResponse = await fetch(endpoint, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify(request),
-              signal: AbortSignal.timeout(timeoutMs || this.config.timeout.read),
-            });
-            if (retryResponse.ok) {
-              const retryText = await retryResponse.text();
-              const retryJsonRpc = this.parseSSEResponse<T>(retryText);
-              if (retryJsonRpc.error) {
-                throw new Error(`JSON-RPC error: ${retryJsonRpc.error.message}`);
-              }
-              return retryJsonRpc.result!;
-            }
-          }
-        }
-      }
-      throw new Error(`Request failed: ${response.status} ${response.statusText}`);
-    }
-
-    const text = await response.text();
-
-    // Parse SSE format: "event: message\ndata: {...}"
-    const jsonRpcResponse = this.parseSSEResponse<T>(text);
-
-    if (jsonRpcResponse.error) {
-      throw new Error(`JSON-RPC error: ${jsonRpcResponse.error.message}`);
-    }
-
-    if (jsonRpcResponse.result === undefined) {
-      throw new Error('No result in JSON-RPC response');
-    }
-
-    return jsonRpcResponse.result;
-  }
-
-  /**
-   * Parse SSE response format to extract JSON-RPC response
-   */
-  private parseSSEResponse<T>(text: string): JsonRpcResponse<T> {
-    // Try parsing as plain JSON first
-    try {
-      return JSON.parse(text);
-    } catch {
-      // Parse SSE format
-    }
-
-    // Parse SSE format: "event: message\ndata: {...}"
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const jsonStr = line.substring(6);
-        return JSON.parse(jsonStr);
-      }
-    }
-
-    throw new Error('Could not parse SSE response');
+  constructor(config: RoutingConfig) {
+    this.sessionManager = new SessionManager(config);
+    this.jsonRpcClient = new JsonRpcClient(config, this.sessionManager);
+    this.healthChecker = new HealthChecker(config, this.sessionManager);
   }
 
   /**
@@ -214,15 +37,13 @@ export class BackendMcpClient {
     toolName: string,
     args?: Record<string, unknown>
   ): Promise<McpToolCallResponse> {
-    return await this.retryRequest(async () => {
-      return await this.sendJsonRpc<McpToolCallResponse>(
-        server.endpoint,
-        'tools/call',
-        { name: toolName, arguments: args },
-        undefined,
-        server.id
-      );
-    });
+    return await this.jsonRpcClient.sendWithRetry<McpToolCallResponse>(
+      server.endpoint,
+      'tools/call',
+      { name: toolName, arguments: args },
+      undefined,
+      server.id
+    );
   }
 
   /**
@@ -232,15 +53,13 @@ export class BackendMcpClient {
     server: ServerRegistration,
     uri: string
   ): Promise<McpResourceReadResponse> {
-    return await this.retryRequest(async () => {
-      return await this.sendJsonRpc<McpResourceReadResponse>(
-        server.endpoint,
-        'resources/read',
-        { uri },
-        undefined,
-        server.id
-      );
-    });
+    return await this.jsonRpcClient.sendWithRetry<McpResourceReadResponse>(
+      server.endpoint,
+      'resources/read',
+      { uri },
+      undefined,
+      server.id
+    );
   }
 
   /**
@@ -251,22 +70,20 @@ export class BackendMcpClient {
     promptName: string,
     args?: Record<string, unknown>
   ): Promise<McpPromptGetResponse> {
-    return await this.retryRequest(async () => {
-      return await this.sendJsonRpc<McpPromptGetResponse>(
-        server.endpoint,
-        'prompts/get',
-        { name: promptName, arguments: args },
-        undefined,
-        server.id
-      );
-    });
+    return await this.jsonRpcClient.sendWithRetry<McpPromptGetResponse>(
+      server.endpoint,
+      'prompts/get',
+      { name: promptName, arguments: args },
+      undefined,
+      server.id
+    );
   }
 
   /**
    * List tools from a backend server (with 5s timeout for responsiveness)
    */
   async listTools(server: ServerRegistration): Promise<McpListToolsResponse> {
-    return await this.sendJsonRpc<McpListToolsResponse>(
+    return await this.jsonRpcClient.send<McpListToolsResponse>(
       server.endpoint,
       'tools/list',
       {},
@@ -281,7 +98,7 @@ export class BackendMcpClient {
   async listResources(
     server: ServerRegistration
   ): Promise<McpListResourcesResponse> {
-    return await this.sendJsonRpc<McpListResourcesResponse>(
+    return await this.jsonRpcClient.send<McpListResourcesResponse>(
       server.endpoint,
       'resources/list',
       {},
@@ -296,7 +113,7 @@ export class BackendMcpClient {
   async listPrompts(
     server: ServerRegistration
   ): Promise<McpListPromptsResponse> {
-    return await this.sendJsonRpc<McpListPromptsResponse>(
+    return await this.jsonRpcClient.send<McpListPromptsResponse>(
       server.endpoint,
       'prompts/list',
       {},
@@ -306,140 +123,9 @@ export class BackendMcpClient {
   }
 
   /**
-   * Check health of a backend server.
-   * Uses a two-tier strategy:
-   * 1. Try Spring Boot actuator endpoint first (fast, standard)
-   * 2. Fall back to MCP ping if actuator fails (works for FastMCP/non-Spring servers)
+   * Check health of a backend server
    */
   async checkHealth(server: ServerRegistration): Promise<ServerHealth> {
-    const startTime = Date.now();
-
-    // First, try Spring Boot actuator health endpoint
-    try {
-      const actuatorUrl = server.endpoint.endsWith('/mcp')
-        ? server.endpoint.replace('/mcp', '/actuator/health')
-        : `${server.endpoint}/actuator/health`;
-
-      const response = await fetch(actuatorUrl, {
-        method: 'GET',
-        signal: AbortSignal.timeout(this.config.timeout.connect),
-      });
-
-      const latency = Date.now() - startTime;
-
-      if (response.ok) {
-        return {
-          status: HealthStatus.HEALTHY,
-          lastCheck: new Date(),
-          latency,
-          consecutiveFailures: 0,
-        };
-      }
-    } catch {
-      // Actuator failed, try MCP-based health check
-    }
-
-    // Fall back to MCP-based health check (ping via initialize or tools/list)
-    return await this.checkHealthViaMcp(server, startTime);
-  }
-
-  /**
-   * Check health by sending an MCP request (initialize or tools/list)
-   */
-  private async checkHealthViaMcp(
-    server: ServerRegistration,
-    startTime: number
-  ): Promise<ServerHealth> {
-    try {
-      const request: JsonRpcRequest = {
-        jsonrpc: '2.0',
-        method: 'initialize',
-        params: {
-          protocolVersion: '2024-11-05',
-          capabilities: {},
-          clientInfo: { name: 'netlify-mcp-gateway-health', version: '1.0.0' },
-        },
-        id: ++this.requestId,
-      };
-
-      const response = await fetch(server.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json, text/event-stream',
-        },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(this.config.timeout.connect),
-      });
-
-      const latency = Date.now() - startTime;
-
-      if (response.ok) {
-        // Store session if returned (for session-based servers)
-        const sessionId = response.headers.get('mcp-session-id');
-        if (sessionId) {
-          this.sessions.set(server.id, sessionId);
-        }
-
-        return {
-          status: HealthStatus.HEALTHY,
-          lastCheck: new Date(),
-          latency,
-          consecutiveFailures: 0,
-        };
-      } else {
-        return {
-          status: HealthStatus.DEGRADED,
-          lastCheck: new Date(),
-          latency,
-          errorMessage: `MCP HTTP ${response.status}`,
-          consecutiveFailures: server.health.consecutiveFailures + 1,
-        };
-      }
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      return {
-        status: HealthStatus.DOWN,
-        lastCheck: new Date(),
-        latency,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        consecutiveFailures: server.health.consecutiveFailures + 1,
-      };
-    }
-  }
-
-  /**
-   * Retry a request with exponential backoff
-   */
-  private async retryRequest<T>(fn: () => Promise<T>): Promise<T> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt < this.config.retry.maxAttempts; attempt++) {
-      try {
-        return await fn();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // Don't retry on last attempt
-        if (attempt === this.config.retry.maxAttempts - 1) {
-          break;
-        }
-
-        // Calculate backoff delay
-        const delay = Math.min(
-          this.config.retry.backoffDelay *
-            Math.pow(this.config.retry.backoffMultiplier, attempt),
-          this.config.retry.maxDelay
-        );
-
-        console.warn(
-          `Request failed (attempt ${attempt + 1}), retrying in ${delay}ms:`,
-          lastError.message
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    throw lastError || new Error('Request failed after retries');
+    return await this.healthChecker.checkHealth(server);
   }
 }

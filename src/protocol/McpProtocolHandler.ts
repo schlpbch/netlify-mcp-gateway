@@ -8,11 +8,15 @@ import type {
   McpResourceReadResponse,
   McpToolCallRequest,
   McpToolCallResponse,
+  McpTool,
+  McpResource,
+  McpPrompt,
 } from '../types/mcp.ts';
 import { ServerRegistry } from '../registry/ServerRegistry.ts';
 import { IntelligentRouter } from '../routing/IntelligentRouter.ts';
 import { addNamespace } from '../registry/NamespaceResolver.ts';
 import { BackendMcpClient } from '../client/BackendMcpClient.ts';
+import { aggregateFromServers } from '../utils/aggregateFromServers.ts';
 
 /**
  * MCP protocol handler - aggregates capabilities and routes requests
@@ -30,30 +34,21 @@ export class McpProtocolHandler {
   async listTools(): Promise<McpListToolsResponse> {
     const servers = this.registry.listHealthyServers();
 
-    const results = await Promise.allSettled(
-      servers.map(async (server) => {
+    const tools = await aggregateFromServers<McpTool>(
+      servers,
+      async (server) => {
         const response = await this.client.listTools(server);
-        const tools = response?.tools || [];
-        return tools.map((tool) => ({
+        const serverTools = response?.tools || [];
+        return serverTools.map((tool) => ({
           ...tool,
           name: addNamespace(server.id, tool.name),
           description: tool.description || `${tool.name} from ${server.name}`,
         }));
-      })
+      },
+      'tools'
     );
 
-    const allTools = results
-      .filter((r): r is PromiseFulfilledResult<typeof r extends PromiseFulfilledResult<infer T> ? T : never> => r.status === 'fulfilled')
-      .flatMap((r) => r.value);
-
-    // Log failures
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        console.error(`Failed to list tools from ${servers[i].id}:`, r.reason);
-      }
-    });
-
-    return { tools: allTools };
+    return { tools };
   }
 
   /**
@@ -69,24 +64,16 @@ export class McpProtocolHandler {
   async listResources(): Promise<McpListResourcesResponse> {
     const servers = this.registry.listHealthyServers();
 
-    const results = await Promise.allSettled(
-      servers.map(async (server) => {
+    const resources = await aggregateFromServers<McpResource>(
+      servers,
+      async (server) => {
         const response = await this.client.listResources(server);
         return response?.resources || [];
-      })
+      },
+      'resources'
     );
 
-    const allResources = results
-      .filter((r): r is PromiseFulfilledResult<typeof r extends PromiseFulfilledResult<infer T> ? T : never> => r.status === 'fulfilled')
-      .flatMap((r) => r.value);
-
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        console.error(`Failed to list resources from ${servers[i].id}:`, r.reason);
-      }
-    });
-
-    return { resources: allResources };
+    return { resources };
   }
 
   /**
@@ -104,30 +91,22 @@ export class McpProtocolHandler {
   async listPrompts(): Promise<McpListPromptsResponse> {
     const servers = this.registry.listHealthyServers();
 
-    const results = await Promise.allSettled(
-      servers.map(async (server) => {
+    const prompts = await aggregateFromServers<McpPrompt>(
+      servers,
+      async (server) => {
         const response = await this.client.listPrompts(server);
-        const prompts = response?.prompts || [];
-        return prompts.map((prompt) => ({
+        const serverPrompts = response?.prompts || [];
+        return serverPrompts.map((prompt) => ({
           ...prompt,
           name: addNamespace(server.id, prompt.name),
           description:
             prompt.description || `${prompt.name} from ${server.name}`,
         }));
-      })
+      },
+      'prompts'
     );
 
-    const allPrompts = results
-      .filter((r): r is PromiseFulfilledResult<typeof r extends PromiseFulfilledResult<infer T> ? T : never> => r.status === 'fulfilled')
-      .flatMap((r) => r.value);
-
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        console.error(`Failed to list prompts from ${servers[i].id}:`, r.reason);
-      }
-    });
-
-    return { prompts: allPrompts };
+    return { prompts };
   }
 
   /**
