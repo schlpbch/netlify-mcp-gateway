@@ -12,7 +12,7 @@ export function loadConfig(): GatewayConfig {
       name: 'Journey Service',
       endpoint:
         Deno.env.get('JOURNEY_SERVICE_URL') ||
-        'https://journey-service-mcp-staging-912808c32493.europe-west6.run.app/mcp',
+        'https://journey-service-mcp-staging-874479064416.europe-west6.run.app',
       transport: 'http' as TransportType,
       priority: 1,
     },
@@ -30,7 +30,7 @@ export function loadConfig(): GatewayConfig {
       name: 'Aareguru',
       endpoint:
         Deno.env.get('AAREGURU_URL') ||
-        'https://aareguru-mcp-staging-912808c32493.europe-west6.run.app/mcp',
+        'https://aareguru.fastmcp.app/mcp',
       transport: 'http' as TransportType,
       priority: 3,
     },

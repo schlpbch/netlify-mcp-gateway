@@ -3,21 +3,102 @@ import type {
   McpListPromptsResponse,
   McpListResourcesResponse,
   McpListToolsResponse,
-  McpPromptGetRequest,
   McpPromptGetResponse,
-  McpResourceReadRequest,
   McpResourceReadResponse,
-  McpToolCallRequest,
   McpToolCallResponse,
 } from '../types/mcp.ts';
 import type { RoutingConfig } from '../types/config.ts';
 import { HealthStatus } from '../types/server.ts';
 
+interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  method: string;
+  params?: Record<string, unknown>;
+  id: number;
+}
+
+interface JsonRpcResponse<T> {
+  jsonrpc: '2.0';
+  id: number;
+  result?: T;
+  error?: { code: number; message: string };
+}
+
 /**
- * HTTP client for communicating with backend MCP servers
+ * HTTP client for communicating with backend MCP servers using JSON-RPC
  */
 export class BackendMcpClient {
+  private requestId = 0;
+
   constructor(private config: RoutingConfig) {}
+
+  /**
+   * Send JSON-RPC request and parse SSE response
+   */
+  private async sendJsonRpc<T>(
+    endpoint: string,
+    method: string,
+    params?: Record<string, unknown>
+  ): Promise<T> {
+    const request: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: ++this.requestId,
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(this.config.timeout.read),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const text = await response.text();
+
+    // Parse SSE format: "event: message\ndata: {...}"
+    const jsonRpcResponse = this.parseSSEResponse<T>(text);
+
+    if (jsonRpcResponse.error) {
+      throw new Error(`JSON-RPC error: ${jsonRpcResponse.error.message}`);
+    }
+
+    if (jsonRpcResponse.result === undefined) {
+      throw new Error('No result in JSON-RPC response');
+    }
+
+    return jsonRpcResponse.result;
+  }
+
+  /**
+   * Parse SSE response format to extract JSON-RPC response
+   */
+  private parseSSEResponse<T>(text: string): JsonRpcResponse<T> {
+    // Try parsing as plain JSON first
+    try {
+      return JSON.parse(text);
+    } catch {
+      // Parse SSE format
+    }
+
+    // Parse SSE format: "event: message\ndata: {...}"
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const jsonStr = line.substring(6);
+        return JSON.parse(jsonStr);
+      }
+    }
+
+    throw new Error('Could not parse SSE response');
+  }
 
   /**
    * Call a tool on a backend server with retry logic
@@ -27,26 +108,12 @@ export class BackendMcpClient {
     toolName: string,
     args?: Record<string, unknown>
   ): Promise<McpToolCallResponse> {
-    const request: McpToolCallRequest = {
-      name: toolName,
-      arguments: args,
-    };
-
     return await this.retryRequest(async () => {
-      const response = await fetch(`${server.endpoint}/tools/call`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(this.config.timeout.read),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Tool call failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.sendJsonRpc<McpToolCallResponse>(
+        server.endpoint,
+        'tools/call',
+        { name: toolName, arguments: args }
+      );
     });
   }
 
@@ -57,23 +124,12 @@ export class BackendMcpClient {
     server: ServerRegistration,
     uri: string
   ): Promise<McpResourceReadResponse> {
-    const request: McpResourceReadRequest = { uri };
-
     return await this.retryRequest(async () => {
-      const response = await fetch(`${server.endpoint}/resources/read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(this.config.timeout.read),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Resource read failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.sendJsonRpc<McpResourceReadResponse>(
+        server.endpoint,
+        'resources/read',
+        { uri }
+      );
     });
   }
 
@@ -85,26 +141,12 @@ export class BackendMcpClient {
     promptName: string,
     args?: Record<string, unknown>
   ): Promise<McpPromptGetResponse> {
-    const request: McpPromptGetRequest = {
-      name: promptName,
-      arguments: args,
-    };
-
     return await this.retryRequest(async () => {
-      const response = await fetch(`${server.endpoint}/prompts/get`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(this.config.timeout.read),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Prompt get failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.sendJsonRpc<McpPromptGetResponse>(
+        server.endpoint,
+        'prompts/get',
+        { name: promptName, arguments: args }
+      );
     });
   }
 
@@ -112,18 +154,11 @@ export class BackendMcpClient {
    * List tools from a backend server
    */
   async listTools(server: ServerRegistration): Promise<McpListToolsResponse> {
-    const response = await fetch(`${server.endpoint}/tools/list`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout.read),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `List tools failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    return await response.json();
+    return await this.sendJsonRpc<McpListToolsResponse>(
+      server.endpoint,
+      'tools/list',
+      {}
+    );
   }
 
   /**
@@ -132,18 +167,11 @@ export class BackendMcpClient {
   async listResources(
     server: ServerRegistration
   ): Promise<McpListResourcesResponse> {
-    const response = await fetch(`${server.endpoint}/resources/list`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout.read),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `List resources failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    return await response.json();
+    return await this.sendJsonRpc<McpListResourcesResponse>(
+      server.endpoint,
+      'resources/list',
+      {}
+    );
   }
 
   /**
@@ -152,18 +180,11 @@ export class BackendMcpClient {
   async listPrompts(
     server: ServerRegistration
   ): Promise<McpListPromptsResponse> {
-    const response = await fetch(`${server.endpoint}/prompts/list`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout.read),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `List prompts failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    return await response.json();
+    return await this.sendJsonRpc<McpListPromptsResponse>(
+      server.endpoint,
+      'prompts/list',
+      {}
+    );
   }
 
   /**
