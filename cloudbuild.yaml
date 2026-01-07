@@ -1,0 +1,43 @@
+steps:
+  # Build with Maven
+  - name: 'maven:3.9-eclipse-temurin-21'
+    entrypoint: mvn
+    args: ['clean', 'package', '-DskipTests']
+
+  # Run tests
+  - name: 'maven:3.9-eclipse-temurin-21'
+    entrypoint: mvn
+    args: ['test']
+
+  # Build and push container with Jib
+  - name: 'maven:3.9-eclipse-temurin-21'
+    entrypoint: mvn
+    args:
+      - 'compile'
+      - 'jib:build'
+      - '-Djib.to.image=gcr.io/$PROJECT_ID/mcp-gateway:$COMMIT_SHA'
+      - '-Djib.to.tags=latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'mcp-gateway-staging'
+      - '--image=gcr.io/$PROJECT_ID/mcp-gateway:$COMMIT_SHA'
+      - '--region=europe-west6'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=SPRING_PROFILES_ACTIVE=staging'
+      - '--vpc-connector=mcp-vpc-connector'
+      - '--memory=1Gi'
+      - '--cpu=2'
+      - '--min-instances=1'
+      - '--max-instances=10'
+
+images:
+  - 'gcr.io/$PROJECT_ID/mcp-gateway:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/mcp-gateway:latest'
+
+timeout: 1200s
