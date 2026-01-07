@@ -1,4 +1,14 @@
-import { getStore } from '@netlify/blobs';
+// Netlify Blobs is only available on Netlify Edge
+// For local dev, we'll use in-memory cache only
+let getStore: any;
+try {
+  const blobs = await import('@netlify/blobs');
+  getStore = blobs.getStore;
+} catch {
+  // Running locally - Netlify Blobs not available
+  getStore = null;
+}
+
 import type { CacheConfig } from '../types/config.ts';
 
 interface CacheEntry<T> {
@@ -8,13 +18,14 @@ interface CacheEntry<T> {
 
 /**
  * Response cache using Netlify Blobs for persistent edge storage
+ * Falls back to memory-only cache for local development
  */
 export class ResponseCache {
-  private blobStore: ReturnType<typeof getStore>;
+  private blobStore: any;
   private memoryCache: Map<string, CacheEntry<unknown>>;
 
   constructor(private config: CacheConfig) {
-    this.blobStore = getStore('mcp-cache');
+    this.blobStore = getStore ? getStore('mcp-cache') : null;
     this.memoryCache = new Map();
   }
 
