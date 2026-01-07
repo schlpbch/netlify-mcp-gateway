@@ -38,7 +38,8 @@ export class BackendMcpClient {
   private async sendJsonRpc<T>(
     endpoint: string,
     method: string,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    timeoutMs?: number
   ): Promise<T> {
     const request: JsonRpcRequest = {
       jsonrpc: '2.0',
@@ -54,7 +55,7 @@ export class BackendMcpClient {
         Accept: 'application/json, text/event-stream',
       },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(this.config.timeout.read),
+      signal: AbortSignal.timeout(timeoutMs || this.config.timeout.read),
     });
 
     if (!response.ok) {
@@ -151,18 +152,19 @@ export class BackendMcpClient {
   }
 
   /**
-   * List tools from a backend server
+   * List tools from a backend server (with 5s timeout for responsiveness)
    */
   async listTools(server: ServerRegistration): Promise<McpListToolsResponse> {
     return await this.sendJsonRpc<McpListToolsResponse>(
       server.endpoint,
       'tools/list',
-      {}
+      {},
+      5000
     );
   }
 
   /**
-   * List resources from a backend server
+   * List resources from a backend server (with 5s timeout for responsiveness)
    */
   async listResources(
     server: ServerRegistration
@@ -170,12 +172,13 @@ export class BackendMcpClient {
     return await this.sendJsonRpc<McpListResourcesResponse>(
       server.endpoint,
       'resources/list',
-      {}
+      {},
+      5000
     );
   }
 
   /**
-   * List prompts from a backend server
+   * List prompts from a backend server (with 5s timeout for responsiveness)
    */
   async listPrompts(
     server: ServerRegistration
@@ -183,7 +186,8 @@ export class BackendMcpClient {
     return await this.sendJsonRpc<McpListPromptsResponse>(
       server.endpoint,
       'prompts/list',
-      {}
+      {},
+      5000
     );
   }
 
