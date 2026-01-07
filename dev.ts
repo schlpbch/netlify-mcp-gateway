@@ -5,9 +5,64 @@
  * Mimics Netlify Edge Functions locally using native Deno HTTP server
  */
 
-import { initGateway } from './src/init.ts';
+import type { Gateway } from './src/init.ts';
+import { ServerRegistry } from './src/registry/ServerRegistry.ts';
+import { BackendMcpClient } from './src/client/BackendMcpClient.ts';
+import { ResponseCache } from './src/cache/ResponseCache.ts';
+import { IntelligentRouter } from './src/routing/IntelligentRouter.ts';
+import { McpProtocolHandler } from './src/protocol/McpProtocolHandler.ts';
+import { HealthMonitor } from './src/monitoring/HealthMonitor.ts';
+import { loadConfig } from './src/config.ts';
+import { HealthStatus } from './src/types/server.ts';
 
 const PORT = parseInt(Deno.env.get('PORT') || '8888');
+
+// Initialize gateway (for local dev)
+async function initGateway(): Promise<Gateway> {
+  console.log('Initializing MCP Gateway for local development...');
+
+  const config = loadConfig();
+
+  // Create core components
+  const registry = ServerRegistry.getInstance();
+  const client = new BackendMcpClient(config.routing);
+  const cache = new ResponseCache(config.cache);
+  const router = new IntelligentRouter(registry, client, cache);
+  const protocolHandler = new McpProtocolHandler(registry, router, client);
+
+  protocolHandler.setCache(cache);
+
+  const healthMonitor = new HealthMonitor(registry, client, config.health);
+
+  // Register servers
+  for (const serverConfig of config.servers) {
+    registry.register({
+      id: serverConfig.id,
+      name: serverConfig.name,
+      endpoint: serverConfig.endpoint,
+      health: {
+        status: HealthStatus.UNKNOWN,
+        lastCheck: new Date(),
+        latency: 0,
+      },
+    });
+  }
+
+  // Start health monitoring
+  healthMonitor.start();
+
+  const gateway: Gateway = {
+    registry,
+    client,
+    cache,
+    router,
+    protocolHandler,
+    healthMonitor,
+  };
+
+  console.log(`✅ Gateway initialized with ${config.servers.length} servers`);
+  return gateway;
+}
 
 // Initialize gateway
 const gateway = await initGateway();

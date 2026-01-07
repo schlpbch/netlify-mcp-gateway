@@ -8,9 +8,9 @@
     "@netlify/blobs": "https://edge.netlify.com/blobs/index.ts"
   },
   "tasks": {
-    "dev": "deno run --allow-net --allow-env --allow-read --watch dev.ts",
-    "start": "deno run --allow-net --allow-env --allow-read dev.ts",
-    "test": "deno test --allow-net --allow-env --allow-read",
+    "dev": "deno run --allow-net --allow-env --allow-read --allow-import --watch dev.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-import dev.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --allow-import",
     "check": "deno check netlify/edge-functions/mcp.ts src/**/*.ts dev.ts",
     "lint": "deno lint src/ netlify/",
     "fmt": "deno fmt src/ netlify/ dev.ts",

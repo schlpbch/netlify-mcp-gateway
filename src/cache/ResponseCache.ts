@@ -54,19 +54,21 @@ export class ResponseCache {
       return cached.value as T;
     }
 
-    // Check blob storage
-    try {
-      const blob = await this.blobStore.get(key, { type: 'json' });
-      if (blob) {
-        const entry = blob as CacheEntry<T>;
-        if (entry.expires > Date.now()) {
-          // Populate memory cache
-          this.memoryCache.set(key, entry);
-          return entry.value;
+    // Check blob storage (only on Netlify)
+    if (this.blobStore) {
+      try {
+        const blob = await this.blobStore.get(key, { type: 'json' });
+        if (blob) {
+          const entry = blob as CacheEntry<T>;
+          if (entry.expires > Date.now()) {
+            // Populate memory cache
+            this.memoryCache.set(key, entry);
+            return entry.value;
+          }
         }
+      } catch (error) {
+        console.warn('Cache read error:', error);
       }
-    } catch (error) {
-      console.warn('Cache read error:', error);
     }
 
     return undefined;
@@ -83,11 +85,13 @@ export class ResponseCache {
     // Set in memory cache
     this.memoryCache.set(key, entry);
 
-    // Set in blob storage (async, don't wait)
-    try {
-      await this.blobStore.setJSON(key, entry);
-    } catch (error) {
-      console.warn('Cache write error:', error);
+    // Set in blob storage (async, don't wait) - only on Netlify
+    if (this.blobStore) {
+      try {
+        await this.blobStore.setJSON(key, entry);
+      } catch (error) {
+        console.warn('Cache write error:', error);
+      }
     }
   }
 
