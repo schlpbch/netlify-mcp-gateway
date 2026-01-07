@@ -4,84 +4,98 @@ This document describes the architecture, design decisions, and implementation d
 
 ## Overview
 
-The MCP Gateway is a unified entry point for AI assistants to access federated MCP servers. It provides intelligent routing, response caching, health monitoring, and namespace management.
+The MCP Gateway is a globally-distributed edge function that serves as a unified entry point for MCP protocol requests. Deployed on **Netlify Edge Functions**, it provides:
+
+- **Global Low-Latency Access**: Requests served from 100+ edge locations worldwide
+- **Type-Safe TypeScript**: Full Deno runtime with TypeScript support
+- **Lightweight Routing**: Framework-free handler pattern for minimal overhead
+- **Zero Ops**: Fully managed infrastructure with automatic scaling
 
 ## Architecture Diagram
 
 ```
-┌─────────────────┐
-│  Claude Desktop │
-└────────┬────────┘
-         │ MCP Protocol
-         ↓
-┌─────────────────────────────────────────┐
-│         MCP Gateway (Cloud Run)         │
-│                                         │
-│  ┌──────────────────────────────────┐  │
-│  │   GatewayMcpController           │  │
-│  │   (REST Endpoints)               │  │
-│  └──────────┬───────────────────────┘  │
-│             ↓                           │
-│  ┌──────────────────────────────────┐  │
-│  │   McpProtocolHandler             │  │
-│  │   (Aggregation & Namespace)      │  │
-│  └──────────┬───────────────────────┘  │
-│             ↓                           │
-│  ┌──────────────────────────────────┐  │
-│  │   IntelligentRouter              │  │
-│  │   (Cache-aware routing)          │  │
-│  └──────┬───────────────────────────┘  │
-│         │                               │
-│    ┌────┴────┐                          │
-│    ↓         ↓                          │
-│  ┌────┐   ┌──────────┐                 │
-│  │Cache│   │Registry  │                 │
-│  └────┘   └──────────┘                 │
-│              ↓                           │
-│  ┌──────────────────────────────────┐  │
-│  │   BackendMcpClient               │  │
-│  │   (HTTP + Retry)                 │  │
-│  └──────────┬───────────────────────┘  │
-└─────────────┼───────────────────────────┘
-              │
-     ┌────────┼────────┬────────┐
-     ↓        ↓        ↓        ↓
-┌─────────┐ ┌────┐ ┌────┐ ┌────┐
-│Journey  │ │Mob │ │Aare│ │Meteo│
-│Service  │ │ility│ │guru│ │     │
-└─────────┘ └────┘ └────┘ └────┘
+┌──────────────────────┐
+│  Claude Desktop      │
+└──────────┬───────────┘
+           │ MCP Protocol (HTTP)
+           ↓
+  Global CDN (100+ edge locations)
+           │
+       ┌───┴───┐
+       ↓       ↓
+  Closest Edge Location
+       │
+       ↓
+┌──────────────────────────────────────────────────────┐
+│  Netlify Edge Function (Deno)                        │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ Route Table Pattern                            │ │
+│  │ { method, path, handler }                      │ │
+│  └──────────────┬─────────────────────────────────┘ │
+│                 ↓                                    │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ Route Handler                                  │ │
+│  │ (Aggregation)                                  │ │
+│  └──────────────┬─────────────────────────────────┘ │
+│                 ↓                                    │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ BackendMcpClient                               │ │
+│  │ (fetch + retry)                                │ │
+│  └──────────────┬─────────────────────────────────┘ │
+└──────────────────────┬───────────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┬───────────────┐
+       ↓               ↓               ↓               ↓
+   (Backend MCP Servers)
 ```
 
 ## Core Components
 
-### 1. GatewayMcpController
+### 1. Route Handler Pattern
 
-**Purpose**: HTTP endpoint layer for MCP protocol
+**Purpose**: Framework-free request routing with minimal overhead
 
-**Responsibilities**:
+**Design**:
 
-- Expose REST endpoints (`/mcp/tools/*`, `/mcp/resources/*`, `/mcp/prompts/*`)
-- Request validation
-- Error handling and response formatting
-- Logging and monitoring
+```typescript
+interface Route {
+  method: string;
+  path: RegExp;
+  handler: (context: RouteContext) => Promise<Response>;
+}
 
-**Key Methods**:
-
-```java
-@PostMapping("/mcp/tools/list")
-Map<String, Object> listTools()
-
-@PostMapping("/mcp/tools/call")
-Map<String, Object> callTool(@RequestBody Map<String, Object> request)
-
-@PostMapping("/mcp/resources/list")
-Map<String, Object> listResources()
-
-@PostMapping("/mcp/resources/read")
-Map<String, Object> readResource(@RequestBody Map<String, Object> request)
+const routes: Route[] = [
+  {
+    method: 'GET',
+    path: /^\/mcp\/tools\/list$/,
+    handler: async (c) => {
+      const result = await c.gateway.protocolHandler.listTools();
+      return c.json(result);
+    },
+  },
+  {
+    method: 'POST',
+    path: /^\/mcp\/tools\/call$/,
+    handler: async (c) => {
+      const body = await c.request.json();
+      const result = await c.gateway.protocolHandler.callTool(body);
+      return c.json(result);
+    },
+  },
+  // ... more routes
+];
 ```
 
-### 2. McpProtocolHandler
+**Benefits**:
+
+- Zero framework overhead
+- Explicit routing with regex patterns
+- Tree-shakeable for bundle optimization
+- Full control over request/response
+- Easy migration path to other platforms (Hono, Cloudflare, Deno Deploy)
+
+### 2. McpProtocolHandler (src/protocol/McpProtocolHandler.ts)
 
 **Purpose**: MCP protocol logic and capability aggregation
 
@@ -92,63 +106,111 @@ Map<String, Object> readResource(@RequestBody Map<String, Object> request)
 - Route requests to appropriate backend
 - Strip namespaces before backend calls
 
-**Namespace Mapping**:
+**Implementation**:
 
-```java
-private String extractServerId(String namespacedName) {
-    String prefix = namespacedName.substring(0, namespacedName.indexOf("."));
-    return switch (prefix) {
-        case "journey" -> "journey-service-mcp";
-        case "mobility" -> "swiss-mobility-mcp";
-        case "aareguru" -> "aareguru-mcp";
-        case "meteo", "weather" -> "open-meteo-mcp";
-        default -> prefix + "-mcp";
-    };
-}
+```typescript
+export const listTools = async (gateway: Gateway): Promise<Tool[]> => {
+  const servers = gateway.registry.listServers();
+  const tools: Tool[] = [];
+  
+  for (const server of servers) {
+    const serverTools = await gateway.client.listTools(server);
+    for (const tool of serverTools) {
+      tools.push({
+        ...tool,
+        name: `${server.id}.${tool.name}`, // Add namespace prefix
+      });
+    }
+  }
+  
+  return tools;
+};
+
+export const callTool = async (
+  gateway: Gateway,
+  toolName: string,
+  input: Record<string, unknown>
+): Promise<unknown> => {
+  const [serverId, bareToolName] = toolName.split('.', 2);
+  const server = gateway.registry.getServer(serverId);
+  
+  return gateway.client.callTool(server, bareToolName, input);
+};
 ```
 
-### 3. IntelligentRouter
+### 3. BackendMcpClient (src/client/BackendMcpClient.ts)
 
-**Purpose**: Cache-aware routing with health checking
+**Purpose**: HTTP communication with backend MCP servers
 
 **Responsibilities**:
 
-- Check cache before routing
-- Verify server health
-- Route to backend
-- Cache successful responses
-- Dynamic TTL assignment
+- Execute tool calls with retry logic
+- Read resources from backends
+- Get prompts from backends
+- Health checking
+- Error handling and recovery
 
-**Routing Flow**:
+**Implementation**:
 
-```java
-public Map<String, Object> routeToolCall(String toolName, Map<String, Object> arguments) {
-    // 1. Check cache
-    String cacheKey = generateCacheKey(toolName, arguments);
-    Map<String, Object> cached = cache.get(cacheKey);
-    if (cached != null) return cached;
-    
-    // 2. Resolve server
-    ServerRegistration server = registry.resolveToolServer(toolName);
-    
-    // 3. Check health
-    if (server.health().status() != HEALTHY) {
-        throw new ServerUnhealthyException();
+```typescript
+export const callTool = async (
+  server: ServerRegistration,
+  toolName: string,
+  input: Record<string, unknown>,
+  retries = 3
+): Promise<unknown> => {
+  const url = new URL(server.endpoint);
+  url.pathname = '/mcp/tools/call';
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: toolName, input }),
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    } catch (err) {
+      if (attempt === retries - 1) throw err;
+      // Exponential backoff: 100ms, 200ms, 400ms
+      await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
     }
+  }
+};
+
+export const checkHealth = async (
+  server: ServerRegistration
+): Promise<ServerHealth> => {
+  const url = new URL(server.endpoint);
+  url.pathname = '/health';
+  
+  try {
+    const start = Date.now();
+    const response = await fetch(url.toString());
+    const latency = Date.now() - start;
     
-    // 4. Call backend
-    Map<String, Object> result = client.callTool(server, stripNamespace(toolName), arguments);
-    
-    // 5. Cache result
-    cache.put(cacheKey, result, determineTTL(toolName));
-    
-    return result;
-}
+    return {
+      status: response.ok ? 'HEALTHY' : 'DEGRADED',
+      latency,
+      lastCheck: new Date(),
+      errorMessage: undefined,
+    };
+  } catch (err) {
+    return {
+      status: 'DOWN',
+      latency: 0,
+      lastCheck: new Date(),
+      errorMessage: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+};
 ```
 
-### 4. ServerRegistry
+### 4. ServerRegistry (src/registry/ServerRegistry.ts)
 
-**Purpose**: Thread-safe server registration and lookup
+**Purpose**: Server registration, discovery, and health tracking
 
 **Responsibilities**:
 
@@ -158,73 +220,95 @@ public Map<String, Object> routeToolCall(String toolName, Map<String, Object> ar
 - Resolve servers by tool/resource/prompt name
 - Update server health status
 
-**Data Structure**:
+**Implementation**:
 
-```java
-private final Map<String, ServerRegistration> servers = new ConcurrentHashMap<>();
+```typescript
+export interface ServerRegistration {
+  id: string; // Unique server ID
+  name: string; // Display name
+  endpoint: string; // Backend URL
+  health: ServerHealth;
+  registeredAt?: Date;
+}
+
+export class ServerRegistry {
+  private servers = new Map<string, ServerRegistration>();
+  
+  register(server: ServerRegistration): void {
+    this.servers.set(server.id, server);
+  }
+  
+  listServers(): ServerRegistration[] {
+    return Array.from(this.servers.values());
+  }
+  
+  getHealthyServers(): ServerRegistration[] {
+    return this.listServers().filter(s => s.health.status === 'HEALTHY');
+  }
+  
+  getServer(id: string): ServerRegistration {
+    const server = this.servers.get(id);
+    if (!server) throw new Error(`Server not found: ${id}`);
+    return server;
+  }
+  
+  updateHealth(id: string, health: ServerHealth): void {
+    const server = this.servers.get(id);
+    if (server) {
+      server.health = health;
+    }
+  }
+}
 ```
 
-**Resolution Logic**:
+### 5. ResponseCache (src/cache/ResponseCache.ts)
 
-```java
-public ServerRegistration resolveToolServer(String toolName) {
-    String serverId = extractServerId(toolName);
-    ServerRegistration server = servers.get(serverId);
+**Purpose**: Response caching with TTL management
+
+**Note**: Currently implemented as in-memory Map. Can be extended with Netlify Blobs or Redis.
+
+**Implementation**:
+
+```typescript
+export class ResponseCache {
+  private cache = new Map<string, { data: unknown; expires: number }>();
+  
+  get(key: string): unknown | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
     
-    // Verify server provides this tool
-    String bareToolName = stripNamespace(toolName);
-    if (!server.capabilities().tools().contains(bareToolName)) {
-        throw new ServerNotFoundException();
+    if (Date.now() > entry.expires) {
+      this.cache.delete(key);
+      return undefined;
     }
     
-    return server;
+    return entry.data;
+  }
+  
+  set(key: string, data: unknown, ttlMs: number): void {
+    this.cache.set(key, {
+      data,
+      expires: Date.now() + ttlMs,
+    });
+  }
+  
+  generateKey(operation: string, name: string, input: unknown): string {
+    const hash = new TextEncoder().encode(
+      `${operation}:${name}:${JSON.stringify(input)}`
+    );
+    return btoa(String.fromCharCode(...hash));
+  }
 }
 ```
 
-### 5. ResponseCache
+**Future Enhancements**:
 
-**Purpose**: In-memory caching with Caffeine
+- Use Netlify Blobs for persistent cache
+- Implement Cache-Control headers
+- Add cache invalidation strategies
+- Support Redis for multi-instance deployments
 
-**Responsibilities**:
 
-- Store/retrieve cached responses
-- TTL management
-- Cache key generation (MD5)
-- Pattern-based invalidation
-
-**Configuration**:
-
-```java
-@Bean
-public Cache<String, Map<String, Object>> responseCache(GatewayProperties properties) {
-    return Caffeine.newBuilder()
-        .maximumSize(properties.getCache().getMaxSize())
-        .expireAfterWrite(Duration.parse(properties.getCache().getDefaultTtl()))
-        .build();
-}
-```
-
-### 6. BackendMcpClient
-
-**Purpose**: HTTP client for backend communication
-
-**Responsibilities**:
-
-- Execute tool calls with retry
-- Read resources with retry
-- Get prompts with retry
-- Health check endpoints
-- List capabilities
-
-**Retry Configuration**:
-
-```java
-@Bean
-public RetryTemplate retryTemplate(GatewayProperties properties) {
-    return RetryTemplate.builder()
-        .maxAttempts(properties.getRouting().getRetry().getMaxAttempts())
-        .exponentialBackoff(
-            properties.getRouting().getRetry().getBackoffDelay(),
             properties.getRouting().getRetry().getBackoffMultiplier(),
             properties.getRouting().getRetry().getMaxDelay()
         )
@@ -233,126 +317,127 @@ public RetryTemplate retryTemplate(GatewayProperties properties) {
 ```
 
 ### 7. ServerHealthMonitor
-
-**Purpose**: Scheduled health checking
-
-**Responsibilities**:
-
-- Periodic health checks
-- Update server health status
-- Track consecutive failures
-- Unhealthy threshold detection
-
-**Scheduling**:
-
-```java
-@Scheduled(fixedDelayString = "${mcp.gateway.health.check-interval}")
-public void checkHealth() {
-    registry.listServers().forEach(server -> {
-        ServerHealth health = client.checkHealth(server);
-        registry.updateHealth(server.id(), health);
-    });
-}
-```
-
 ## Domain Models
 
-### ServerRegistration (Java Record)
+### ServerRegistration (src/types/server.ts)
 
-```java
-public record ServerRegistration(
-    String id,
-    String name,
-    String endpoint,
-    TransportType transport,
-    ServerCapabilities capabilities,
-    ServerHealth health,
-    int priority,
-    Instant registeredAt
-) {
-    public static Builder builder() { ... }
+```typescript
+export interface ServerRegistration {
+  id: string; // Unique server ID
+  name: string; // Display name
+  endpoint: string; // Backend URL
+  health: ServerHealth;
+  registeredAt?: Date;
 }
 ```
 
-### ServerHealth (Java Record)
+### ServerHealth (src/types/server.ts)
 
-```java
-public record ServerHealth(
-    HealthStatus status,
-    Instant lastCheck,
-    Duration latency,
-    String errorMessage,
-    int consecutiveFailures
-) {
-    public enum HealthStatus {
-        HEALTHY, DEGRADED, DOWN, UNKNOWN
-    }
+```typescript
+export interface ServerHealth {
+  status: 'HEALTHY' | 'DEGRADED' | 'DOWN';
+  lastCheck: Date;
+  latency: number; // milliseconds
+  errorMessage?: string;
 }
 ```
 
-### ServerCapabilities (Java Record)
+### Tool & Resource (src/types/mcp.ts)
 
-```java
-public record ServerCapabilities(
-    List<String> tools,
-    List<ResourceCapability> resources,
-    List<String> prompts
-) {
-    public record ResourceCapability(
-        String uriPrefix,
-        String description
-    ) {}
+```typescript
+export interface Tool {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface Resource {
+  uri: string;
+  name?: string;
+  description?: string;
+}
+
+export interface Prompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{ name: string; type: string }>;
 }
 ```
 
 ## Design Decisions
 
-### 1. Lombok-Free Architecture
+### 1. Netlify Edge Functions
 
-**Decision**: Remove Lombok, use Java 21 records
-
-**Rationale**:
-
-- Java 21 records provide immutability out-of-the-box
-- No annotation processing overhead
-- Better IDE support
-- Cleaner stack traces
-- Explicit control over behavior
-
-**Implementation**:
-
-- Domain models: Java records with builders
-- Configuration: Standard POJOs with getters/setters
-- Logging: Standard SLF4J `LoggerFactory.getLogger()`
-
-### 2. In-Memory Caching (Caffeine)
-
-**Decision**: Use Caffeine instead of Redis
+**Decision**: Deploy on Netlify Edge Functions instead of traditional container/VM infrastructure
 
 **Rationale**:
 
-- Simpler deployment (no external dependencies)
-- Lower latency (in-process)
-- Sufficient for MVP
-- Easy to migrate to Redis later
+- **Global Distribution**: Automatic deployment to 100+ edge locations
+- **Low Latency**: Requests served from nearest geographic location
+- **Zero Ops**: Fully managed infrastructure, no servers to maintain
+- **Auto-Scaling**: Handles traffic spikes automatically
+- **Cost-Effective**: Pay-per-use pricing
 
 **Trade-offs**:
 
-- Cache not shared across instances
-- Cache lost on restart
-- Limited by instance memory
+- Limited to synchronous request/response model
+- Edge Function execution timeout (few seconds)
+- No persistent storage on edge (use Netlify Blobs or backend)
+- Deno runtime limitations (subset of Node.js APIs)
 
-### 3. Namespace Prefixing
+### 2. Framework-Free Routing (Route Table Pattern)
 
-**Decision**: Add server ID prefix to tool/prompt names
+**Decision**: Explicit route table instead of Hono or Express
 
 **Rationale**:
 
-- Avoid naming conflicts
-- Clear server attribution
-- Support future multi-instance backends
+- **Lightweight**: No framework overhead, minimal bundle size
+- **Control**: Full control over request/response handling
+- **Portability**: Easy to migrate to Hono, Cloudflare Workers, or Deno Deploy
+- **Performance**: Regex-based routing is efficient at edge
+- **Transparency**: Routes are easy to understand and debug
 
-**Format**: `{server-prefix}.{tool-name}`
+**Trade-offs**:
+
+- More boilerplate than framework
+- Manual middleware management
+- No built-in features (compression, caching headers, etc.)
+
+**Migration Path**:
+
+- Can add Hono with minimal refactoring
+- Route handlers are framework-agnostic
+- Would only require import changes
+
+### 3. TypeScript + Deno Runtime
+
+**Decision**: Use TypeScript on Deno for edge function implementation
+
+**Rationale**:
+
+- **Type Safety**: Full TypeScript support prevents runtime errors
+- **Deno Security**: Sandboxed execution, explicit permissions
+- **Web-Compatible**: Native Web API support (fetch, Request, Response)
+- **Modern Runtime**: ES2022+ support, no transpilation needed
+- **No node_modules**: Deno uses URLs for dependencies
+
+**Trade-offs**:
+
+- Deno ecosystem smaller than Node.js
+- Some popular npm packages not available
+- Learning curve for developers familiar with Node.js
+
+### 4. Namespace Prefixing
+
+**Decision**: Add server ID prefix to tool/prompt names (e.g., `journey.findTrips`)
+
+**Rationale**:
+
+- Avoid naming conflicts between servers
+- Clear attribution of capabilities
+- Support for future multi-instance backends
+
+**Format**: `{server-id}.{tool-name}`
 
 **Examples**:
 
@@ -360,172 +445,224 @@ public record ServerCapabilities(
 - `mobility.getTripPricing`
 - `aareguru.getCurrentConditions`
 
-### 4. Health-Based Routing
+### 5. Retry with Exponential Backoff
 
-**Decision**: Only route to healthy servers
+**Decision**: Retry failed backend calls with exponential backoff
 
 **Rationale**:
 
-- Prevent cascading failures
-- Improve user experience
-- Enable graceful degradation
+- Handle transient network failures
+- Reduce load on struggling backends
+- Improve overall success rate
 
 **Implementation**:
 
-- Scheduled health checks (60s interval)
-- Unhealthy threshold (3 consecutive failures)
-- Automatic recovery when health improves
+```typescript
+const RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 100;
+const BACKOFF_MULTIPLIER = 2;
 
-### 5. Retry with Exponential Backoff
-
-**Decision**: Retry failed backend calls with backoff
-
-**Rationale**:
-
-- Handle transient failures
-- Reduce load on struggling backends
-- Improve success rate
-
-**Configuration**:
-
-```yaml
-mcp:
-  gateway:
-    routing:
-      retry:
-        max-attempts: 3
-        backoff-delay: 100ms
-        backoff-multiplier: 2.0
-        max-delay: 2s
+// Each attempt waits: 100ms, 200ms, 400ms
 ```
 
 ## Configuration
 
-### Application Properties
+### netlify.toml
 
-```yaml
-mcp:
-  gateway:
-    cache:
-      default-ttl: 5m
-      max-size: 10000
-    
-    routing:
-      retry:
-        max-attempts: 3
-        backoff-delay: 100ms
-        backoff-multiplier: 2.0
-      
-      timeout:
-        connect: 5s
-        read: 30s
-    
-    health:
-      check-interval: 60s
-      unhealthy-threshold: 3
-    
-    servers:
-      - id: journey-service-mcp
-        name: Journey Service
-        endpoint: ${JOURNEY_SERVICE_URL}
-        transport: http
-        priority: 1
+```toml
+[build]
+  publish = "public"
+
+[[edge_functions]]
+  function = "mcp"
+  path = "/mcp/*"
+
+[dev]
+  port = 8888
+```
+
+### src/config.ts
+
+```typescript
+export interface GatewayConfig {
+  servers: ServerConfig[];
+  cache?: {
+    ttlMs: number;
+    maxEntries: number;
+  };
+}
+
+export interface ServerConfig {
+  id: string;
+  name: string;
+  endpoint: string;
+}
+
+export const loadConfig = (): GatewayConfig => ({
+  servers: [
+    {
+      id: 'journey-service',
+      name: 'Journey Service',
+      endpoint: Deno.env.get('JOURNEY_SERVICE_URL') || 'http://localhost:3001',
+    },
+    // ... more servers
+  ],
+  cache: {
+    ttlMs: 5 * 60 * 1000, // 5 minutes
+    maxEntries: 1000,
+  },
+});
 ```
 
 ### Environment Variables
 
-- `JOURNEY_SERVICE_URL`: Journey Service endpoint
-- `SWISS_MOBILITY_URL`: Swiss Mobility endpoint
-- `AAREGURU_URL`: Aareguru endpoint
-- `OPEN_METEO_URL`: Open Meteo endpoint
-- `SPRING_PROFILES_ACTIVE`: Active profile (dev/prod)
+Set in Netlify dashboard > Site settings > Build & deploy > Environment:
+
+- `JOURNEY_SERVICE_URL`: Journey Service backend endpoint
+- `SWISS_MOBILITY_URL`: Swiss Mobility backend endpoint
+- `AAREGURU_URL`: Aareguru backend endpoint
+- `OPEN_METEO_URL`: Open Meteo backend endpoint
+- `DEBUG`: Enable debug logging (optional)
 
 ## Performance Characteristics
 
 ### Latency
 
-- **Cache Hit**: ~5ms
-- **Cache Miss**: Backend latency + ~10ms overhead
-- **Health Check**: ~50ms per server
+- **Cached Response**: ~50-100ms (edge location to user)
+- **Uncached Response**: ~200-500ms (edge → backend → edge)
+- **Edge Location Benefit**: ~10-100ms faster than traditional single-region deployment
 
 ### Throughput
 
-- **Max RPS**: ~1000 (single instance, cached)
-- **Max RPS**: ~100 (single instance, uncached)
-- **Scaling**: Linear with instances
+- **Concurrent Requests**: Limited by Netlify Edge Functions quotas
+- **Scalability**: Automatic, handled by Netlify infrastructure
+- **No manual scaling needed**: Serverless auto-scales with traffic
 
-### Memory
+### Resource Usage
 
-- **Base**: ~200MB
-- **Cache**: ~10MB per 1000 entries
-- **Max**: ~1GB (configured limit)
+- **Memory**: Minimal (Deno runtime optimized)
+- **CPU**: Pay-per-use, metered by Netlify
+- **Bandwidth**: Charged per GB egress
+
+### Netlify Pricing Tier
+
+- **Free**: 1M requests/month included
+- **Pro**: $19/month + overages
+- **Enterprise**: Custom pricing
+
+See [Netlify Pricing](https://www.netlify.com/pricing/) for details.
 
 ## Security Considerations
 
 ### Current State
 
-- Public access (no authentication)
-- No rate limiting
-- No input validation beyond Spring defaults
+- ✅ Public access (no authentication required)
+- ✅ Basic request validation
+- ⚠️ No rate limiting
+- ⚠️ No input validation beyond JSON parsing
 
-### Recommendations
+### Recommendations for Production
 
-1. **Authentication**: Add API key or OAuth
-2. **Rate Limiting**: Implement per-client limits
-3. **Input Validation**: Add schema validation
-4. **Network Security**: Use VPC for backend access
-5. **Secrets Management**: Use Secret Manager for credentials
+1. **Authentication**:
+   - Add API key header validation
+   - Implement OAuth if needed
+   - Use Netlify Functions for auth middleware
 
-## Monitoring
+2. **Rate Limiting**:
+   - Implement per-IP rate limiting
+   - Use Netlify Functions or external service
 
-### Key Metrics
+3. **Input Validation**:
+   - Validate request schemas
+   - Sanitize user input
+   - Implement timeout limits
 
-- Request count and latency (P50, P95, P99)
-- Cache hit rate
-- Backend health status
-- Error rate by type
-- Memory and CPU usage
+4. **Secrets Management**:
+   - Use Netlify environment variables for backend URLs
+   - Never commit secrets to git
+   - Use separate credentials per environment
+
+5. **Network Security**:
+   - Restrict backend endpoints to Netlify IP ranges
+   - Use HTTPS for all backend communication
+   - Consider VPN/private networks for sensitive backends
+
+## Monitoring & Observability
+
+### Metrics Available
+
+- **Request count**: Total requests to gateway
+- **Response time**: P50, P95, P99 latencies
+- **Error rate**: 4xx, 5xx response counts
+- **Backend health**: Status of each backend server
+- **Cache hit rate**: Percentage of responses from cache
 
 ### Logging
 
-- Request/response logging (DEBUG level)
-- Health check results
-- Cache operations
-- Backend errors
+```typescript
+// Error logging
+console.error(`[ERROR] ${message}`, { error, context });
 
-### Alerts
+// Info logging
+console.log(`[INFO] Tool call: ${toolName}`);
+
+// Debug logging (when DEBUG=true)
+if (Deno.env.get('DEBUG')) {
+  console.debug(`[DEBUG] Response: ${JSON.stringify(response)}`);
+}
+```
+
+### Access via Netlify Dashboard
+
+- View logs in Netlify dashboard
+- Monitor usage and bandwidth
+- Track error rates
+- Check deployment history
+
+### Recommended Alerts
 
 - Error rate > 5%
-- P95 latency > 1s
+- P95 latency > 1000ms
 - All backends unhealthy
-- Memory usage > 80%
+- Frequent timeouts
+
+### Future Enhancements
+
+- Integrate with datadog/new-relic
+- Add distributed tracing
+- Implement custom metrics
+- Set up analytics dashboard
 
 ## Future Enhancements
 
-### Short Term
+### Short Term (Q1 2026)
 
-1. Add authentication/authorization
-2. Implement rate limiting
-3. Add request validation
-4. Set up monitoring dashboards
+1. ✅ Add interactive web UI for testing
+2. ⬜ Implement request validation schemas
+3. ⬜ Add basic rate limiting
+4. ⬜ Set up monitoring dashboard
 
-### Medium Term
+### Medium Term (Q2 2026)
 
-1. Support WebSocket transport
-2. Add circuit breaker pattern
-3. Implement request batching
-4. Add distributed tracing
+1. ⬜ Implement distributed caching (Netlify Blobs)
+2. ⬜ Add authentication/API keys
+3. ⬜ Support backend server health dashboards
+4. ⬜ Implement circuit breaker pattern
 
-### Long Term
+### Long Term (Q3-Q4 2026)
 
-1. Multi-region deployment
-2. Advanced load balancing
-3. A/B testing support
-4. Analytics and insights
+1. ⬜ Migrate to Hono framework (if needed)
+2. ⬜ Add distributed tracing
+3. ⬜ Support multiple deployment platforms
+4. ⬜ Advanced analytics and insights
 
 ## References
 
-- [MCP Protocol Specification](https://modelcontextprotocol.io)
-- [Spring Boot Documentation](https://spring.io/projects/spring-boot)
-- [Caffeine Cache](https://github.com/ben-manes/caffeine)
+- [Model Context Protocol](https://modelcontextprotocol.io)
+- [Netlify Edge Functions](https://docs.netlify.com/edge-functions/overview/)
+- [Deno Runtime](https://deno.land/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- [Project Repository](https://github.com/schlpbch/netlify-mcp-gateway)
+- [Live Deployment](https://netliy-mcp-gateway.netlify.app)
+````
 - [Google Cloud Run](https://cloud.google.com/run)
