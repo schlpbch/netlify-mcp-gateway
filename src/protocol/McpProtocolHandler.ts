@@ -34,7 +34,8 @@ export class McpProtocolHandler {
     for (const server of servers) {
       try {
         const response = await this.client.listTools(server);
-        const namespacedTools = response.tools.map((tool) => ({
+        const tools = response?.tools || [];
+        const namespacedTools = tools.map((tool) => ({
           ...tool,
           name: addNamespace(server.id, tool.name),
           description: tool.description || `${tool.name} from ${server.name}`,
@@ -65,7 +66,8 @@ export class McpProtocolHandler {
     for (const server of servers) {
       try {
         const response = await this.client.listResources(server);
-        allResources.push(...response.resources);
+        const resources = response?.resources || [];
+        allResources.push(...resources);
       } catch (error) {
         console.error(`Failed to list resources from ${server.id}:`, error);
       }
@@ -93,7 +95,8 @@ export class McpProtocolHandler {
     for (const server of servers) {
       try {
         const response = await this.client.listPrompts(server);
-        const namespacedPrompts = response.prompts.map((prompt) => ({
+        const prompts = response?.prompts || [];
+        const namespacedPrompts = prompts.map((prompt) => ({
           ...prompt,
           name: addNamespace(server.id, prompt.name),
           description:

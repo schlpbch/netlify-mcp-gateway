@@ -14,6 +14,9 @@ const NAMESPACE_MAP: Record<string, string> = {
  * Extract server ID from a namespaced name (e.g., "journey.findTrips" -> "journey-service-mcp")
  */
 export function extractServerId(namespacedName: string): string {
+  if (!namespacedName) {
+    throw new Error('namespacedName is required');
+  }
   const prefix = namespacedName.split('.')[0];
   return NAMESPACE_MAP[prefix] || `${prefix}-mcp`;
 }
@@ -22,6 +25,9 @@ export function extractServerId(namespacedName: string): string {
  * Strip namespace from a tool/prompt name (e.g., "journey.findTrips" -> "findTrips")
  */
 export function stripNamespace(namespacedName: string): string {
+  if (!namespacedName) {
+    return '';
+  }
   const dotIndex = namespacedName.indexOf('.');
   return dotIndex === -1
     ? namespacedName
@@ -32,6 +38,9 @@ export function stripNamespace(namespacedName: string): string {
  * Add namespace prefix to a tool/prompt name
  */
 export function addNamespace(serverId: string, name: string): string {
+  if (!serverId || !name) {
+    return name || '';
+  }
   // Reverse lookup to find prefix
   for (const [prefix, id] of Object.entries(NAMESPACE_MAP)) {
     if (id === serverId) {
@@ -48,6 +57,9 @@ export function addNamespace(serverId: string, name: string): string {
  * Get namespace prefix for a server ID
  */
 export function getNamespacePrefix(serverId: string): string {
+  if (!serverId) {
+    return '';
+  }
   for (const [prefix, id] of Object.entries(NAMESPACE_MAP)) {
     if (id === serverId) {
       return prefix;
