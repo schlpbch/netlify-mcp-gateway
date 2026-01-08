@@ -126,7 +126,7 @@ const mcpHandler = async (request: Request): Promise<Response> => {
   // MCP endpoints
   if (url.pathname.startsWith('/mcp/')) {
     // Load and execute the edge function
-    const { default: handler } = await import('./deno/edge-functions/mcp.ts');
+    const { default: handler } = await import('./netlify/edge-functions/mcp.ts');
     return handler(request, { gateway });
   }
 
