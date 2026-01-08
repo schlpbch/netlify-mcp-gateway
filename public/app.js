@@ -473,6 +473,90 @@ async function copyToClipboard() {
   }
 }
 
+// Resources Reader functionality
+let _resourcesList = [];
+
+async function initResourcesDropdown() {
+  const select = document.getElementById('resource-select');
+  if (!select) return;
+  
+  try {
+    const response = await fetch('/mcp/resources/list');
+    const data = await response.json();
+    _resourcesList = data.resources || [];
+    
+    // Populate dropdown
+    select.innerHTML = '<option value="">Select a resource...</option>';
+    _resourcesList.forEach((resource, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = resource.name;
+      select.appendChild(option);
+    });
+    
+    document.getElementById('resource-status').textContent = `${_resourcesList.length} resource(s) available`;
+  } catch (error) {
+    document.getElementById('resource-status').textContent = 'Failed to load resources';
+    console.error('Error loading resources:', error);
+  }
+}
+
+function showResourceDetails(resource) {
+  if (!resource) {
+    document.getElementById('resource-details').classList.add('hidden');
+    return;
+  }
+  
+  document.getElementById('resource-name').textContent = resource.name;
+  document.getElementById('resource-description').textContent = resource.description || 'No description available';
+  document.getElementById('resource-details').classList.remove('hidden');
+}
+
+async function readResource() {
+  const select = document.getElementById('resource-select');
+  const selectedIndex = select.value;
+  
+  if (!selectedIndex) return;
+  
+  const resource = _resourcesList[selectedIndex];
+  if (!resource) return;
+  
+  const resultContainer = document.getElementById('resource-result-container');
+  const resultEl = document.getElementById('resource-result');
+  const statusEl = document.getElementById('resource-result-status');
+  
+  statusEl.textContent = 'Loading...';
+  statusEl.classList.add('text-accent');
+  
+  try {
+    const response = await fetch('/mcp/resources/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri: resource.uri })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      resultEl.textContent = typeof data.contents === 'string' 
+        ? data.contents 
+        : JSON.stringify(data.contents, null, 2);
+      statusEl.textContent = 'Success';
+      statusEl.classList.remove('text-accent');
+    } else {
+      resultEl.textContent = JSON.stringify(data, null, 2);
+      statusEl.textContent = 'Error';
+    }
+    
+    resultContainer.classList.remove('hidden');
+  } catch (error) {
+    resultEl.textContent = `Error: ${error.message}`;
+    statusEl.textContent = 'Failed';
+    resultContainer.classList.remove('hidden');
+    console.error('Error reading resource:', error);
+  }
+}
+
 // Theme management
 function _getThemePreference() {
   const stored = localStorage.getItem('theme');
@@ -539,5 +623,32 @@ document.addEventListener('DOMContentLoaded', () => {
       endpoint = '/' + endpoint;
     }
     callPost(endpoint, json);
+  });
+
+  // Resources Reader
+  initResourcesDropdown();
+  document.getElementById('resource-select')?.addEventListener('change', (e) => {
+    const selectedIndex = e.target.value;
+    if (selectedIndex) {
+      showResourceDetails(_resourcesList[selectedIndex]);
+    } else {
+      showResourceDetails(null);
+    }
+  });
+  document.getElementById('read-resource-btn')?.addEventListener('click', readResource);
+  document.getElementById('copy-resource')?.addEventListener('click', () => {
+    const resultEl = document.getElementById('resource-result');
+    if (resultEl?.textContent) {
+      navigator.clipboard.writeText(resultEl.textContent).then(() => {
+        const copyBtn = document.getElementById('copy-resource');
+        const originalLabel = copyBtn.getAttribute('aria-label');
+        copyBtn.setAttribute('aria-label', 'Copied!');
+        copyBtn.classList.add('text-accent');
+        setTimeout(() => {
+          copyBtn.setAttribute('aria-label', originalLabel);
+          copyBtn.classList.remove('text-accent');
+        }, 2000);
+      }).catch(err => console.error('Failed to copy:', err));
+    }
   });
 });
