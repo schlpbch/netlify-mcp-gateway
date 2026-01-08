@@ -29,13 +29,13 @@ deno-mcp-gateway/
 
 ### 1. Install Astro dependencies
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Run development server
 ```bash
 # Terminal 1: Astro dev server (rebuilds on changes, serves pages)
-npm run dev
+pnpm dev
 
 # Terminal 2: Deno backend (API routes)
 deno task dev
@@ -45,7 +45,7 @@ The Astro dev server runs on `http://localhost:3000` and proxies API requests to
 
 ### 3. Build for production
 ```bash
-npm run build
+pnpm build
 ```
 
 This generates static HTML in `dist/` that can be served with your Deno backend.

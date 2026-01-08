@@ -3,6 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "description": "MCP Gateway with Astro frontend",
+  "packageManager": "pnpm@9.0.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
