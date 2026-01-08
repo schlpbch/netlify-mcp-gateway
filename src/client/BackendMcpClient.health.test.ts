@@ -81,13 +81,13 @@ class HealthCheckTestClient {
     this.responseIndex = 0;
   }
 
-  private mockFetch(url: string, _options: RequestInit): Promise<{
+  private mockFetch(url: string, options: RequestInit): Promise<{
     ok: boolean;
     status: number;
     headers: { get: (name: string) => string | null };
     text: () => Promise<string>;
   }> {
-    this.fetchCalls.push({ url, _options });
+    this.fetchCalls.push({ url, options });
     const response = this.mockResponses[this.responseIndex] || {
       ok: true,
       status: 200,
@@ -100,14 +100,14 @@ class HealthCheckTestClient {
       throw new Error(response.errorMessage || 'Network error');
     }
 
-    return {
+    return Promise.resolve({
       ok: response.ok,
       status: response.status,
       headers: {
         get: (name: string) => response.headers.get(name) || null,
       },
       text: () => Promise.resolve(response.body),
-    };
+    });
   }
 
   async checkHealth(server: ServerRegistration): Promise<ServerHealth> {

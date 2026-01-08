@@ -1,5 +1,6 @@
 import {
   assertEquals,
+  assertRejects,
 } from 'https://deno.land/std@0.208.0/assert/mod.ts';
 // import { stub, assertSpyCalls } from 'https://deno.land/std@0.208.0/testing/mock.ts';
 import { HealthStatus, TransportType } from '../types/server.ts';
@@ -59,26 +60,26 @@ class TestableBackendMcpClient {
     this.responseIndex = 0;
   }
 
-  private mockFetch(url: string, _options: RequestInit): Promise<Response> {
+  private mockFetch(url: string, options: RequestInit): Promise<Response> {
     this.fetchCalls.push({ url, options });
     const response = this.mockResponses[this.responseIndex] || { ok: true, status: 200, data: {} };
     this.responseIndex++;
 
     if (!response.ok) {
-      return {
+      return Promise.resolve({
         ok: false,
         status: response.status,
         statusText: 'Error',
         json: () => Promise.resolve(response.data),
-      } as Response;
+      } as Response);
     }
 
-    return {
+    return Promise.resolve({
       ok: true,
       status: response.status,
       statusText: 'OK',
       json: () => Promise.resolve(response.data),
-    } as Response;
+    } as Response);
   }
 
   async callTool(
