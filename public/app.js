@@ -531,6 +531,7 @@ async function readResource() {
   try {
     // Debug: log the resource to see what we're sending
     console.log('Reading resource:', resource);
+    console.log('Resource URI:', resource.uri);
     
     const response = await fetch('/mcp/resources/read', {
       method: 'POST',
@@ -539,6 +540,8 @@ async function readResource() {
     });
     
     const data = await response.json();
+    
+    console.log('Response status:', response.status, 'Data:', data);
     
     if (response.ok) {
       // Handle different response formats
@@ -549,7 +552,12 @@ async function readResource() {
       statusEl.textContent = 'Success';
       statusEl.classList.remove('text-accent');
     } else {
-      resultEl.textContent = JSON.stringify(data, null, 2);
+      // Show the error from the backend
+      if (data.error) {
+        resultEl.textContent = `Error: ${data.error}\n${data.message || ''}\n\nResource URI: ${resource.uri}`;
+      } else {
+        resultEl.textContent = JSON.stringify(data, null, 2);
+      }
       statusEl.textContent = 'Error';
     }
     
