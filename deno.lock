@@ -44,9 +44,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@netlify/blobs@^8.1.0",
-        "npm:@netlify/edge-functions@^2.11.0",
-        "npm:netlify-cli@^23.13.1"
+        "npm:@deno/blobs@^8.1.0",
+        "npm:@deno/edge-functions@^2.11.0",
+        "npm:deno-cli@^23.13.1"
       ]
     }
   }

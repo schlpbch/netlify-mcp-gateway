@@ -137,7 +137,9 @@ export class RateLimiter {
 /**
  * Create rate limiter middleware
  */
-export const createRateLimitMiddleware = (config?: Partial<RateLimitConfig>) => {
+export const createRateLimitMiddleware = (
+  config?: Partial<RateLimitConfig>
+) => {
   const limiter = new RateLimiter({
     windowMs: config?.windowMs || 60 * 1000, // 1 minute
     maxRequests: config?.maxRequests || 100, // 100 requests per minute
@@ -156,9 +158,15 @@ export const createRateLimitMiddleware = (config?: Partial<RateLimitConfig>) => 
       const remaining = limiter.getRemaining(request);
       const resetTime = limiter.getResetTime(request);
 
-      response.headers.set('X-RateLimit-Limit', config?.maxRequests?.toString() || '100');
+      response.headers.set(
+        'X-RateLimit-Limit',
+        config?.maxRequests?.toString() || '100'
+      );
       response.headers.set('X-RateLimit-Remaining', remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(resetTime).toISOString());
+      response.headers.set(
+        'X-RateLimit-Reset',
+        new Date(resetTime).toISOString()
+      );
 
       return response;
     };

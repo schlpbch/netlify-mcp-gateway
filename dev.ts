@@ -87,11 +87,35 @@ const mcpHandler = async (request: Request): Promise<Response> => {
     );
   }
 
+  // Metrics endpoint for dashboard
+  if (url.pathname === '/metrics') {
+    const metrics = {
+      totalRequests: gateway.healthMonitor ? gateway.healthMonitor.totalRequests || 0 : 0,
+      totalErrors: gateway.healthMonitor ? gateway.healthMonitor.totalErrors || 0 : 0,
+      errorRate: gateway.healthMonitor ? (gateway.healthMonitor.totalErrors || 0) / Math.max((gateway.healthMonitor.totalRequests || 1), 1) : 0,
+      cacheHitRate: gateway.cache ? gateway.cache.getHitRate() : 0,
+      averageLatency: gateway.healthMonitor ? gateway.healthMonitor.averageLatency || 0 : 0,
+      backends: Array.from(gateway.registry.getServers()).map(server => ({
+        id: server.id,
+        name: server.name,
+        status: server.health?.status || 'UNKNOWN',
+        latency: server.health?.latency || 0,
+      })),
+      timestamp: new Date().toISOString(),
+    };
+    return new Response(JSON.stringify(metrics), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Static files from public/
-  if (url.pathname === '/' || url.pathname.startsWith('/public/')) {
+  if (url.pathname === '/' || url.pathname === '/dashboard' || url.pathname.startsWith('/public/')) {
     try {
       const filePath =
-        url.pathname === '/' ? './public/index.html' : '.' + url.pathname;
+        url.pathname === '/' ? './public/index.html' 
+        : url.pathname === '/dashboard' ? './public/dashboard.html'
+        : '.' + url.pathname;
 
       const file = await Deno.readFile(filePath);
       const contentType = filePath.endsWith('.html')

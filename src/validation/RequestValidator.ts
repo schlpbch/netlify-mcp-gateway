@@ -34,10 +34,7 @@ export interface HealthCheckResponse {
  * Validation errors
  */
 export class ValidationError extends Error {
-  constructor(
-    public field: string,
-    public reason: string
-  ) {
+  constructor(public field: string, public reason: string) {
     super(`Validation error: ${field} - ${reason}`);
   }
 }
@@ -127,7 +124,9 @@ export const validatePromptGet = (data: unknown): PromptGetRequest => {
 /**
  * Create validation error response
  */
-export const createValidationErrorResponse = (error: ValidationError): Response => {
+export const createValidationErrorResponse = (
+  error: ValidationError
+): Response => {
   return new Response(
     JSON.stringify({
       error: 'Validation Error',

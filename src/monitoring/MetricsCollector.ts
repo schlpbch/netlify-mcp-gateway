@@ -112,11 +112,15 @@ export class MetricsCollector {
     const oneMinuteAgo = now - 60 * 1000;
 
     // Filter to last minute
-    const recentRequests = this.requestLog.filter((r) => r.timestamp > oneMinuteAgo);
+    const recentRequests = this.requestLog.filter(
+      (r) => r.timestamp > oneMinuteAgo
+    );
 
     // Calculate metrics
     const totalRequests = this.requestLog.length;
-    const totalErrors = this.requestLog.filter((r) => r.statusCode >= 400).length;
+    const totalErrors = this.requestLog.filter(
+      (r) => r.statusCode >= 400
+    ).length;
     const cachedRequests = this.requestLog.filter((r) => r.cached).length;
     const cacheHitRate = totalRequests > 0 ? cachedRequests / totalRequests : 0;
     const averageLatency =
@@ -124,7 +128,9 @@ export class MetricsCollector {
         ? this.requestLog.reduce((sum, r) => sum + r.latency, 0) / totalRequests
         : 0;
 
-    const recentErrors = recentRequests.filter((r) => r.statusCode >= 400).length;
+    const recentErrors = recentRequests.filter(
+      (r) => r.statusCode >= 400
+    ).length;
     const errorsPerMinute = recentErrors;
     const requestsPerMinute = recentRequests.length;
 
