@@ -691,6 +691,343 @@ function toggleTheme() {
   setTheme(next);
 }
 
+// Dashboard card rendering functions
+function renderToolsCard(data) {
+  const body = data.body || data;
+  const tools = body.tools || [];
+
+  if (tools.length === 0) {
+    return '<p class="text-sm text-slate-500">No tools available</p>';
+  }
+
+  // Group by namespace and count
+  const grouped = {};
+  tools.forEach((tool) => {
+    const [namespace] = tool.name.split('.');
+    if (!grouped[namespace]) grouped[namespace] = 0;
+    grouped[namespace]++;
+  });
+
+  const namespaces = Object.entries(grouped).slice(0, 3);
+
+  return `
+    <div class="text-3xl font-bold text-slate-900 dark:text-white mb-2">${
+      tools.length
+    }</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Available tools</p>
+    <div class="space-y-1">
+      ${namespaces
+        .map(
+          ([ns, count]) => `
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-600 dark:text-slate-400">${ns}</span>
+          <span class="font-medium text-accent">${count}</span>
+        </div>
+      `
+        )
+        .join('')}
+      ${
+        Object.keys(grouped).length > 3
+          ? `<p class="text-xs text-slate-400 mt-1">+${
+              Object.keys(grouped).length - 3
+            } more</p>`
+          : ''
+      }
+    </div>
+  `;
+}
+
+function renderPromptsCard(data) {
+  const body = data.body || data;
+  const prompts = body.prompts || [];
+
+  if (prompts.length === 0) {
+    return '<p class="text-sm text-slate-500">No prompts available</p>';
+  }
+
+  const preview = prompts.slice(0, 3);
+
+  return `
+    <div class="text-3xl font-bold text-slate-900 dark:text-white mb-2">${
+      prompts.length
+    }</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Available prompts</p>
+    <div class="space-y-1">
+      ${preview
+        .map((prompt) => {
+          const shortName = prompt.name.split('.').slice(1).join('.');
+          return `
+          <div class="text-xs text-slate-600 dark:text-slate-400 truncate">• ${
+            shortName || prompt.name
+          }</div>
+        `;
+        })
+        .join('')}
+      ${
+        prompts.length > 3
+          ? `<p class="text-xs text-slate-400 mt-1">+${
+              prompts.length - 3
+            } more</p>`
+          : ''
+      }
+    </div>
+  `;
+}
+
+function renderResourcesCard(data) {
+  const body = data.body || data;
+  const resources = body.resources || [];
+
+  if (resources.length === 0) {
+    return '<p class="text-sm text-slate-500">No resources available</p>';
+  }
+
+  const preview = resources.slice(0, 3);
+
+  return `
+    <div class="text-3xl font-bold text-slate-900 dark:text-white mb-2">${
+      resources.length
+    }</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Available resources</p>
+    <div class="space-y-1">
+      ${preview
+        .map(
+          (resource) => `
+        <div class="text-xs text-slate-600 dark:text-slate-400 truncate">• ${
+          resource.name || resource.uri
+        }</div>
+      `
+        )
+        .join('')}
+      ${
+        resources.length > 3
+          ? `<p class="text-xs text-slate-400 mt-1">+${
+              resources.length - 3
+            } more</p>`
+          : ''
+      }
+    </div>
+  `;
+}
+
+function renderHealthCard(data) {
+  const body = data.body || data;
+  const servers = body.servers || [];
+  const overallStatus = body.status || 'UNKNOWN';
+
+  const statusCounts = {
+    HEALTHY: 0,
+    DEGRADED: 0,
+    DOWN: 0,
+    UNKNOWN: 0,
+  };
+
+  servers.forEach((server) => {
+    const status = server.status?.toUpperCase() || 'UNKNOWN';
+    if (statusCounts[status] !== undefined) {
+      statusCounts[status]++;
+    }
+  });
+
+  const statusColor = getStatusColor(overallStatus);
+
+  return `
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full ${statusColor} mb-3">
+      ${getStatusIcon(overallStatus)}
+      <span class="text-sm font-semibold">${overallStatus}</span>
+    </div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">${
+      servers.length
+    } backend servers</p>
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+        <span class="text-slate-600 dark:text-slate-400">${
+          statusCounts.HEALTHY
+        } healthy</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+        <span class="text-slate-600 dark:text-slate-400">${
+          statusCounts.DEGRADED
+        } degraded</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+        <span class="text-slate-600 dark:text-slate-400">${
+          statusCounts.DOWN
+        } down</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+        <span class="text-slate-600 dark:text-slate-400">${
+          statusCounts.UNKNOWN
+        } unknown</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderMetricsCard(data) {
+  const body = data.body || data;
+  const requests = body.requests || {};
+  const latency = body.latency || {};
+  const cache = body.cache || {};
+
+  const errorRate = requests.errorRate || '0%';
+  const cacheHitRate = cache.hitRate || '0%';
+
+  return `
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <div class="text-2xl font-bold text-slate-900 dark:text-white">${
+          requests.total || 0
+        }</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Requests</p>
+      </div>
+      <div>
+        <div class="text-2xl font-bold ${
+          parseFloat(cacheHitRate) > 50
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-yellow-600 dark:text-yellow-400'
+        }">${cacheHitRate}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Cache Hit</p>
+      </div>
+      <div>
+        <div class="text-2xl font-bold text-slate-900 dark:text-white">${
+          latency.p50 || '0ms'
+        }</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">P50 Latency</p>
+      </div>
+      <div>
+        <div class="text-2xl font-bold ${
+          requests.errors > 0
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-green-600 dark:text-green-400'
+        }">${errorRate}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Error Rate</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderCardError(message) {
+  return `
+    <div class="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>Failed to load</span>
+    </div>
+  `;
+}
+
+// Load dashboard data on page load
+async function loadDashboardData() {
+  const endpoints = [
+    { id: 'tools', path: '/mcp/tools/list', renderer: renderToolsCard },
+    { id: 'prompts', path: '/mcp/prompts/list', renderer: renderPromptsCard },
+    {
+      id: 'resources',
+      path: '/mcp/resources/list',
+      renderer: renderResourcesCard,
+    },
+    { id: 'health', path: '/mcp/health', renderer: renderHealthCard },
+    { id: 'metrics', path: '/mcp/metrics', renderer: renderMetricsCard },
+  ];
+
+  // Load all endpoints concurrently
+  const promises = endpoints.map(async ({ id, path, renderer }) => {
+    const contentEl = document.getElementById(`${id}-card-content`);
+    if (!contentEl) return;
+
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      const data = await response.json();
+
+      if (response.ok) {
+        contentEl.innerHTML = renderer({ body: data });
+      } else {
+        contentEl.innerHTML = renderCardError(
+          data.error || 'Error loading data'
+        );
+      }
+    } catch (error) {
+      console.error(`Error loading ${id}:`, error);
+      contentEl.innerHTML = renderCardError(error.message);
+    }
+  });
+
+  await Promise.all(promises);
+}
+
+// Expand card to show full details
+function expandCard(cardType, data) {
+  const expandedView = document.getElementById('expanded-view');
+  const expandedTitle = document.getElementById('expanded-title');
+  const expandedContent = document.getElementById('expanded-content');
+
+  if (!expandedView || !expandedTitle || !expandedContent) return;
+
+  // Set title
+  expandedTitle.textContent =
+    cardType.charAt(0).toUpperCase() + cardType.slice(1);
+
+  // Render full content using existing render functions
+  let html = '';
+  if (cardType === 'tools') {
+    html = renderTools(data);
+  } else if (cardType === 'prompts') {
+    html = renderPrompts(data);
+  } else if (cardType === 'resources') {
+    html = renderResources(data);
+  } else if (cardType === 'health') {
+    html = renderHealth(data);
+  } else if (cardType === 'metrics') {
+    html = renderMetrics(data);
+  }
+
+  expandedContent.innerHTML = html;
+  expandedView.classList.remove('hidden');
+
+  // Scroll to expanded view
+  expandedView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Add click handlers for cards
+function setupCardClickHandlers() {
+  const cardTypes = ['tools', 'prompts', 'resources', 'health', 'metrics'];
+
+  cardTypes.forEach((type) => {
+    const card = document.getElementById(`${type}-card`);
+    if (card) {
+      card.addEventListener('click', async () => {
+        try {
+          const path =
+            type === 'health'
+              ? '/mcp/health'
+              : type === 'metrics'
+              ? '/mcp/metrics'
+              : `/mcp/${type}/list`;
+          const response = await fetch(path, { cache: 'no-store' });
+          const data = await response.json();
+          expandCard(type, { body: data });
+        } catch (error) {
+          console.error(`Error expanding ${type}:`, error);
+        }
+      });
+    }
+  });
+
+  // Close button
+  const closeBtn = document.getElementById('close-expanded');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      document.getElementById('expanded-view')?.classList.add('hidden');
+    });
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setStatus('Ready');
 
@@ -707,10 +1044,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+  // Load dashboard cards
+  loadDashboardData();
+  setupCardClickHandlers();
+
   // Raw/Formatted toggle
   toggleRawBtn?.addEventListener('click', toggleRawView);
 
-  // GET buttons
+  // GET buttons (kept for backward compatibility)
   document
     .getElementById('btn-tools')
     ?.addEventListener('click', () => callGet('/mcp/tools/list'));
