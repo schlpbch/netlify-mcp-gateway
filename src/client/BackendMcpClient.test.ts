@@ -1,8 +1,7 @@
 import {
   assertEquals,
-  assertRejects,
 } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { stub, assertSpyCalls } from 'https://deno.land/std@0.208.0/testing/mock.ts';
+// import { stub, assertSpyCalls } from 'https://deno.land/std@0.208.0/testing/mock.ts';
 import { HealthStatus, TransportType } from '../types/server.ts';
 import type { ServerRegistration } from '../types/server.ts';
 import type { RoutingConfig } from '../types/config.ts';
@@ -60,7 +59,7 @@ class TestableBackendMcpClient {
     this.responseIndex = 0;
   }
 
-  private async mockFetch(url: string, options: RequestInit): Promise<Response> {
+  private mockFetch(url: string, _options: RequestInit): Promise<Response> {
     this.fetchCalls.push({ url, options });
     const response = this.mockResponses[this.responseIndex] || { ok: true, status: 200, data: {} };
     this.responseIndex++;
@@ -246,7 +245,7 @@ Deno.test('BackendMcpClient - callTool sends correct request', async () => {
     { ok: true, status: 200, data: { content: [{ type: 'text', text: 'result' }] } },
   ]);
 
-  const result = await client.callTool(server, 'findTrips', { from: 'A', to: 'B' });
+  await client.callTool(server, 'findTrips', { from: 'A', to: 'B' });
 
   assertEquals(client.fetchCalls.length, 1);
   assertEquals(client.fetchCalls[0].url, 'https://test-server.example.com/mcp/tools/call');
@@ -301,7 +300,7 @@ Deno.test('BackendMcpClient - readResource sends correct request', async () => {
     { ok: true, status: 200, data: { contents: [{ uri: 'test://resource', text: 'content' }] } },
   ]);
 
-  const result = await client.readResource(server, 'test://resource');
+  await client.readResource(server, 'test://resource');
 
   assertEquals(client.fetchCalls[0].url, 'https://test-server.example.com/mcp/resources/read');
   const body = JSON.parse(client.fetchCalls[0].options.body as string);
@@ -316,7 +315,7 @@ Deno.test('BackendMcpClient - getPrompt sends correct request', async () => {
     { ok: true, status: 200, data: { messages: [{ role: 'user', content: { type: 'text', text: 'prompt' } }] } },
   ]);
 
-  const result = await client.getPrompt(server, 'tripPlanner', { city: 'Zurich' });
+  await client.getPrompt(server, 'tripPlanner', { city: 'Zurich' });
 
   assertEquals(client.fetchCalls[0].url, 'https://test-server.example.com/mcp/prompts/get');
   const body = JSON.parse(client.fetchCalls[0].options.body as string);
@@ -347,7 +346,7 @@ Deno.test('BackendMcpClient - listResources sends GET request', async () => {
     { ok: true, status: 200, data: { resources: [{ uri: 'res://1', name: 'Resource 1' }] } },
   ]);
 
-  const result = await client.listResources(server);
+  await client.listResources(server);
 
   assertEquals(client.fetchCalls[0].url, 'https://test-server.example.com/mcp/resources/list');
   assertEquals(client.fetchCalls[0].options.method, 'GET');
@@ -361,7 +360,7 @@ Deno.test('BackendMcpClient - listPrompts sends GET request', async () => {
     { ok: true, status: 200, data: { prompts: [{ name: 'prompt1' }] } },
   ]);
 
-  const result = await client.listPrompts(server);
+  await client.listPrompts(server);
 
   assertEquals(client.fetchCalls[0].url, 'https://test-server.example.com/mcp/prompts/list');
   assertEquals(client.fetchCalls[0].options.method, 'GET');

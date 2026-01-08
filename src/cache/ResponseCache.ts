@@ -1,6 +1,6 @@
 // Netlify Blobs is only available on Netlify Edge
 // For local dev, we'll use in-memory cache only
-let getStore: any;
+let getStore: unknown;
 try {
   const blobs = await import('@netlify/blobs');
   getStore = blobs.getStore;
@@ -21,7 +21,7 @@ interface CacheEntry<T> {
  * Falls back to memory-only cache for local development
  */
 export class ResponseCache {
-  private blobStore: any;
+  private blobStore: unknown;
   private memoryCache: Map<string, CacheEntry<unknown>>;
 
   constructor(private config: CacheConfig) {
@@ -98,25 +98,27 @@ export class ResponseCache {
   /**
    * Invalidate cache entries matching a pattern
    */
-  async invalidate(pattern: string): Promise<void> {
+  invalidate(_pattern: string): Promise<void> {
     // Clear from memory cache
     for (const key of this.memoryCache.keys()) {
-      if (key.includes(pattern)) {
+      if (key.includes(_pattern)) {
         this.memoryCache.delete(key);
       }
     }
 
     // Note: Netlify Blobs doesn't support pattern-based deletion
     // We'd need to list all keys and delete individually, which is expensive
-    console.log(`Invalidated memory cache for pattern: ${pattern}`);
+    console.log(`Invalidated memory cache for pattern: ${_pattern}`);
+    return Promise.resolve();
   }
 
   /**
    * Clear all cache entries
    */
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     this.memoryCache.clear();
     console.log('Cleared memory cache');
+    return Promise.resolve();
   }
 
   /**

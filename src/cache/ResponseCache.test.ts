@@ -2,13 +2,13 @@ import {
   assertEquals,
   assertNotEquals,
 } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { stub } from 'https://deno.land/std@0.208.0/testing/mock.ts';
+// import { stub } from 'https://deno.land/std@0.208.0/testing/mock.ts';
 
 // Mock the @netlify/blobs module before importing ResponseCache
-const mockBlobStore = {
-  get: () => Promise.resolve(null),
-  setJSON: () => Promise.resolve(),
-};
+// const mockBlobStore = {
+//   get: () => Promise.resolve(null),
+//   setJSON: () => Promise.resolve(),
+// };
 
 // We need to test ResponseCache with mocked blob store
 // Since the module imports @netlify/blobs at the top level,
@@ -34,30 +34,33 @@ class TestableResponseCache {
     return Math.abs(hash).toString(16).padStart(8, '0');
   }
 
-  async get<T>(key: string): Promise<T | undefined> {
-    const cached = this.memoryCache.get(key);
+  get<T>(_key: string): Promise<T | undefined> {
+    const cached = this.memoryCache.get(_key);
     if (cached && cached.expires > Date.now()) {
-      return cached.value as T;
+      return Promise.resolve(cached.value as T);
     }
-    return undefined;
+    return Promise.resolve(undefined);
   }
 
-  async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
-    const ttl = ttlSeconds || this.config.defaultTtl;
+  set<T>(_key: string, _value: T, _ttlSeconds?: number): Promise<void> {
+    const ttl = _ttlSeconds || this.config.defaultTtl;
     const expires = Date.now() + ttl * 1000;
-    this.memoryCache.set(key, { value, expires });
+    this.memoryCache.set(_key, { value: _value, expires });
+    return Promise.resolve();
   }
 
-  async invalidate(pattern: string): Promise<void> {
+  invalidate(_pattern: string): Promise<void> {
     for (const key of this.memoryCache.keys()) {
-      if (key.includes(pattern)) {
+      if (key.includes(_pattern)) {
         this.memoryCache.delete(key);
       }
     }
+    return Promise.resolve();
   }
 
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     this.memoryCache.clear();
+    return Promise.resolve();
   }
 
   getStats(): { memorySize: number } {

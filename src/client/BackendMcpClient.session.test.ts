@@ -1,6 +1,5 @@
 import {
   assertEquals,
-  assertRejects,
 } from 'https://deno.land/std@0.208.0/assert/mod.ts';
 import { HealthStatus, TransportType } from '../types/server.ts';
 import type { ServerRegistration } from '../types/server.ts';
@@ -80,13 +79,13 @@ class SessionTestClient {
     this.responseIndex = 0;
   }
 
-  private async mockFetch(url: string, options: RequestInit): Promise<{
+  private mockFetch(url: string, _options: RequestInit): Promise<{
     ok: boolean;
     status: number;
     headers: { get: (name: string) => string | null };
     text: () => Promise<string>;
   }> {
-    this.fetchCalls.push({ url, options });
+    this.fetchCalls.push({ url, _options });
     const response = this.mockResponses[this.responseIndex] || {
       ok: true,
       status: 200,

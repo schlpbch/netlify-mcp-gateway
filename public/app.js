@@ -3,7 +3,7 @@ const formattedEl = document.getElementById('response-formatted');
 const rawEl = document.getElementById('response-raw');
 const toggleRawBtn = document.getElementById('toggle-raw');
 
-let currentResponse = null;
+let _currentResponse = null;
 let showRaw = false;
 
 function setStatus(text, isLoading = false) {
@@ -278,7 +278,7 @@ function renderMetrics(data) {
   const errorRate = requests.errorRate || '0%';
   const cacheHitRate = cache.hitRate || '0%';
 
-  let html = `
+  const html = `
     <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between">
@@ -474,10 +474,10 @@ async function copyToClipboard() {
 }
 
 // Theme management
-function getThemePreference() {
+function _getThemePreference() {
   const stored = localStorage.getItem('theme');
   if (stored) return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function setTheme(theme) {
@@ -503,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
   themeToggle?.addEventListener('click', toggleTheme);
 
   // Listen for system theme changes
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  globalThis.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     if (!localStorage.getItem('theme')) {
       setTheme(e.matches ? 'dark' : 'light');
     }

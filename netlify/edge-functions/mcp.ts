@@ -7,23 +7,23 @@ type Handler = (c: RouteContext) => Promise<Response>;
 interface RouteContext {
   request: Request;
   context: Context;
-  gateway: any;
+  gateway: unknown;
   timer: RequestTimer;
-  json: (data: any, status?: number) => Response;
+  json: (data: unknown, status?: number) => Response;
   text: (text: string, status?: number) => Response;
 }
 
 const createRouteContext = (
   request: Request,
   context: Context,
-  gateway: any,
+  gateway: unknown,
   timer: RequestTimer
 ): RouteContext => ({
   request,
   context,
   gateway,
   timer,
-  json: (data: any, status = 200) =>
+  json: (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
       status,
       headers: { 'Content-Type': 'application/json' },
@@ -82,10 +82,12 @@ const routes: Array<{
   {
     method: 'POST',
     path: /^\/mcp\/prompts\/get$/,
-    handler: async (c) => {
-      const body = await c.request.json();
-      const result = await c.gateway.protocolHandler.getPrompt(body);
-      return c.json(result);
+    handler: (c) => {
+      const body = c.request.json();
+      const result = Promise.resolve(c.gateway).then(async (gw: unknown) =>
+        (gw as Record<string, unknown>).protocolHandler.getPrompt(body)
+      );
+      return result.then((result: unknown) => c.json(result));
     },
   },
   {
@@ -122,47 +124,54 @@ const routes: Array<{
   {
     method: 'GET',
     path: /^\/mcp\/health$|^\/health$/,
-    handler: async (c) => {
-      const servers = c.gateway.registry.listServers();
-      const healthChecks = await Promise.allSettled(
-        servers.map(async (server: any) => {
-          const health = await c.gateway.client.checkHealth(server);
-          return { server, health };
+    handler: (c) => {
+      const servers = (c.gateway as Record<string, unknown>).registry.listServers() as Array<{id: string; name: string; endpoint: string}>;
+      const healthChecks = Promise.allSettled(
+        servers.map((server: unknown) => {
+          const health = Promise.resolve((c.gateway as Record<string, unknown>).client).then(async (client: unknown) =>
+            (client as Record<string, unknown>).checkHealth(server)
+          );
+          return health.then((h: unknown) => ({ server, health: h }));
         })
       );
 
-      const serverStatuses = healthChecks.map((result: any, index: number) => {
-        if (result.status === 'fulfilled') {
-          const { server, health } = result.value;
-          return {
-            id: server.id,
-            name: server.name,
-            endpoint: server.endpoint,
-            status: health.status,
-            latency: health.latency,
-            lastCheck: health.lastCheck,
-            errorMessage: health.errorMessage,
-          };
-        } else {
-          const server = servers[index];
-          return {
-            id: server.id,
-            name: server.name,
-            endpoint: server.endpoint,
-            status: 'DOWN',
-            latency: 0,
-            errorMessage: result.reason?.message || 'Health check failed',
-          };
-        }
-      });
+      return healthChecks.then((results: unknown) => {
+        const healthChecks = results as Array<PromiseSettledResult<{server: unknown; health: unknown}>>;
+        const serverStatuses = healthChecks.map((result: PromiseSettledResult<{server: unknown; health: unknown}>, index: number) => {
+          if (result.status === 'fulfilled') {
+            const { server, health } = result.value;
+            const s = server as {id: string; name: string; endpoint: string};
+            const h = health as {status: string; latency: number; lastCheck: number; errorMessage?: string};
+            return {
+              id: s.id,
+              name: s.name,
+              endpoint: s.endpoint,
+              status: h.status,
+              latency: h.latency,
+              lastCheck: h.lastCheck,
+              errorMessage: h.errorMessage,
+            };
+          } else {
+            const server = servers[index];
+            return {
+              id: server.id,
+              name: server.name,
+              endpoint: server.endpoint,
+              status: 'DOWN',
+              latency: 0,
+              errorMessage: (result as PromiseRejectedResult).reason?.message || 'Health check failed',
+            };
+          }
+        });
 
-      const allHealthy = serverStatuses.every((s: any) => s.status === 'HEALTHY');
-      const anyHealthy = serverStatuses.some((s: any) => s.status === 'HEALTHY');
+        const allHealthy = serverStatuses.every((s: unknown) => (s as {status: string}).status === 'HEALTHY');
+        const anyHealthy = serverStatuses.some((s: unknown) => (s as {status: string}).status === 'HEALTHY');
 
-      return c.json({
-        status: allHealthy ? 'UP' : anyHealthy ? 'DEGRADED' : 'DOWN',
-        timestamp: new Date().toISOString(),
-        servers: serverStatuses,
+        return c.json({
+          status: allHealthy ? 'UP' : anyHealthy ? 'DEGRADED' : 'DOWN',
+          timestamp: new Date().toISOString(),
+          servers: serverStatuses,
+        });
       });
     },
   },

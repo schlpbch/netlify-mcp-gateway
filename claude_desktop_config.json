@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mcp-gateway": {
+      "transport": {
+        "type": "sse",
+        "url": "https://mcp-gateway.deno.dev/sse"
+      }
+    }
+  }
+}

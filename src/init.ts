@@ -23,7 +23,7 @@ let cachedGateway: Gateway | null = null;
  * Initialize the gateway (called on each edge function invocation)
  * Reuses cached instance if available within the same edge node
  */
-export async function initializeGateway(_context: Context): Promise<Gateway> {
+export function initializeGateway(_context: Context): Promise<Gateway> {
   // Reuse if already initialized (within same edge container)
   if (cachedGateway) {
     return cachedGateway;

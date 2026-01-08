@@ -1,10 +1,6 @@
-import type { ServerRegistration } from '../types/server.ts';
 import type {
-  McpPromptGetRequest,
   McpPromptGetResponse,
-  McpResourceReadRequest,
   McpResourceReadResponse,
-  McpToolCallRequest,
   McpToolCallResponse,
 } from '../types/mcp.ts';
 import { HealthStatus } from '../types/server.ts';

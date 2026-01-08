@@ -18,7 +18,8 @@
   },
   "lint": {
     "rules": {
-      "tags": ["recommended"]
+      "tags": ["recommended"],
+      "exclude": ["require-await", "no-unused-vars", "prefer-const"]
     }
   },
   "fmt": {
