@@ -529,6 +529,9 @@ async function readResource() {
   statusEl.classList.add('text-accent');
   
   try {
+    // Debug: log the resource to see what we're sending
+    console.log('Reading resource:', resource);
+    
     const response = await fetch('/mcp/resources/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -538,9 +541,11 @@ async function readResource() {
     const data = await response.json();
     
     if (response.ok) {
-      resultEl.textContent = typeof data.contents === 'string' 
-        ? data.contents 
-        : JSON.stringify(data.contents, null, 2);
+      // Handle different response formats
+      let content = data.contents || data.content || data;
+      resultEl.textContent = typeof content === 'string' 
+        ? content 
+        : JSON.stringify(content, null, 2);
       statusEl.textContent = 'Success';
       statusEl.classList.remove('text-accent');
     } else {
