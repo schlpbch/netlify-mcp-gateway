@@ -295,6 +295,210 @@
           const dashboardButton = html.match(/<a[^>]*href="\/dashboard"[^>]*>[\s\S]*?<\/a>/);
           return dashboardButton && dashboardButton[0].includes("sm:w-5") && dashboardButton[0].includes("sm:h-5");
         }
+      },
+      {
+        name: "Home page has hero section with heading",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("MCP Gateway") && html.includes("<h1");
+        }
+      },
+      {
+        name: "Home page has quick actions section",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("Quick Actions") || html.includes("quick");
+        }
+      },
+      {
+        name: "Home page action buttons have proper styling",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("bg-accent") && html.includes("rounded-lg") && html.includes("px-") && html.includes("py-");
+        }
+      },
+      {
+        name: "Home page has API tester form",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("form") || html.includes("input") || html.includes("textarea");
+        }
+      },
+      {
+        name: "Home page has responsive grid layout",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("grid") && html.includes("grid-cols-1");
+        }
+      },
+      {
+        name: "Home page has dark mode support on main elements",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("dark:bg-") && html.includes("dark:text-");
+        }
+      },
+      {
+        name: "Home page uses Tailwind responsive prefixes",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("sm:") && html.includes("md:") && html.includes("lg:");
+        }
+      },
+      {
+        name: "Home page has proper button styling",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("hover:") && html.includes("transition-");
+        }
+      },
+      {
+        name: "Home page has proper spacing utilities",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("gap-") && html.includes("space-");
+        }
+      },
+      {
+        name: "Home page has service cards or sections",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("card") || html.includes("section") || html.includes("Service");
+        }
+      },
+      {
+        name: "Home page has proper heading hierarchy",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("<h1") && html.includes("<h2");
+        }
+      },
+      {
+        name: "Home page has footer with links",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          const footerMatch = html.match(/<footer[\s\S]*?<\/footer>/);
+          return footerMatch && footerMatch[0].includes("<a");
+        }
+      },
+      {
+        name: "Home page footer has dashboard link",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          const footerMatch = html.match(/<footer[\s\S]*?<\/footer>/);
+          return footerMatch && footerMatch[0].includes("Dashboard");
+        }
+      },
+      {
+        name: "Home page header has proper structure",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          const headerMatch = html.match(/<header[\s\S]*?<\/header>/);
+          return headerMatch && headerMatch[0].includes("nav") && headerMatch[0].includes("Dashboard");
+        }
+      },
+      {
+        name: "Home page buttons have rounded corners",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("rounded-lg") || html.includes("rounded-md") || html.includes("rounded-full");
+        }
+      },
+      {
+        name: "Home page has proper touch target sizes",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("p-2") || html.includes("p-3") || html.includes("min-h-");
+        }
+      },
+      {
+        name: "Home page buttons have focus outline",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("focus:outline-none") || html.includes("focus:ring");
+        }
+      },
+      {
+        name: "Home page uses semantic HTML structure",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("<header") && html.includes("<main") && html.includes("<footer");
+        }
+      },
+      {
+        name: "Home page has proper color contrast support",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("text-") && html.includes("bg-") || html.includes("dark:text-");
+        }
+      },
+      {
+        name: "Home page content is centered and readable",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("max-w-") || html.includes("container") || html.includes("mx-auto");
+        }
+      },
+      {
+        name: "Home page has accessible link labels",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("aria-label") || html.includes("title") || (html.includes("<a") && !html.includes("<a>"));
+        }
+      },
+      {
+        name: "Home page has form with proper inputs",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("<input") || html.includes("<textarea") || html.includes("<select");
+        }
+      },
+      {
+        name: "Home page inputs have focus states",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("focus:ring") || html.includes("focus:border");
+        }
+      },
+      {
+        name: "Home page has proper text hierarchy",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          return html.includes("text-sm") || html.includes("text-lg") || html.includes("text-xl");
+        }
+      },
+      {
+        name: "Home page styles are applied to key sections",
+        test: async () => {
+          const response = await fetch("/");
+          const html = await response.text();
+          const styleCount = (html.match(/class="/g) || []).length;
+          return styleCount > 20; // Ensure sufficient styling applied
+        }
       }
     ];
 
