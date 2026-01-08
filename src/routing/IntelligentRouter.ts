@@ -60,7 +60,9 @@ export class IntelligentRouter {
    */
   async routeResourceRead(uri: string): Promise<McpResourceReadResponse> {
     // Resources are typically not cached as they may be dynamic
+    console.log('[Router] routeResourceRead called with URI:', uri);
     const server = this.registry.resolveResourceServer(uri);
+    console.log('[Router] Resolved server:', server.id);
 
     if (server.health.status !== HealthStatus.HEALTHY) {
       throw new Error(
@@ -72,8 +74,11 @@ export class IntelligentRouter {
     // (e.g., "about://service" -> "service")
     // The server will add its own namespace prefix, so we only need the path
     const pathOnly = uri.includes('://') ? uri.split('://')[1] : uri;
+    console.log('[Router] Stripped URI:', pathOnly);
 
-    return await this.client.readResource(server, pathOnly);
+    const result = await this.client.readResource(server, pathOnly);
+    console.log('[Router] Resource read result:', result);
+    return result;
   }
 
   /**

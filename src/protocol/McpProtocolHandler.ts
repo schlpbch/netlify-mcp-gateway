@@ -116,6 +116,7 @@ export class McpProtocolHandler {
         const response = await this.client.listResources(server);
         if (response?.resources) {
           // Keep resources as-is without modifying URIs
+          console.log(`[Protocol] Resources from ${server.id}:`, response.resources.map(r => ({ name: r.name, uri: r.uri })));
           allResources.push(...response.resources);
         }
       } catch (error) {
