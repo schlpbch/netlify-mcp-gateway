@@ -8,7 +8,7 @@
 import type { Gateway } from './src/init.ts';
 import { ServerRegistry } from './src/registry/ServerRegistry.ts';
 import { BackendMcpClient } from './src/client/BackendMcpClient.ts';
-import { MetricsCollector } from './src/monitoring/MetricsCollector.ts';
+import { globalMetrics } from './src/monitoring/MetricsCollector.ts';
 import { ResponseCache } from './src/cache/ResponseCache.ts';
 import { IntelligentRouter } from './src/routing/IntelligentRouter.ts';
 import { McpProtocolHandler } from './src/protocol/McpProtocolHandler.ts';
@@ -90,7 +90,7 @@ const mcpHandler = async (request: Request): Promise<Response> => {
 
   // Metrics endpoint for dashboard
   if (url.pathname === '/metrics') {
-    const metrics = MetricsCollector.globalMetrics.getSummary();
+    const metrics = globalMetrics.getSummary();
     return new Response(JSON.stringify(metrics), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
