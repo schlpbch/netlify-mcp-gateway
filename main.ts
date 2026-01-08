@@ -23,14 +23,16 @@ const BACKEND_SERVERS: BackendServer[] = [
   {
     id: 'journey',
     name: 'Journey Service',
-    endpoint: Deno.env.get('JOURNEY_SERVICE_URL') ||
+    endpoint:
+      Deno.env.get('JOURNEY_SERVICE_URL') ||
       'https://journey-service-mcp-staging-874479064416.europe-west6.run.app',
     requiresSession: true,
   },
   {
     id: 'aareguru',
     name: 'Aareguru',
-    endpoint: Deno.env.get('AAREGURU_URL') || 'https://aareguru.fastmcp.app/mcp',
+    endpoint:
+      Deno.env.get('AAREGURU_URL') || 'https://aareguru.fastmcp.app/mcp',
     requiresSession: false,
   },
 ];
@@ -75,7 +77,11 @@ const jsonRpcResponse = (id: string | number | null, result: unknown) => ({
   result,
 });
 
-const jsonRpcError = (id: string | number | null, code: number, message: string) => ({
+const jsonRpcError = (
+  id: string | number | null,
+  code: number,
+  message: string
+) => ({
   jsonrpc: '2.0' as const,
   id,
   error: { code, message },
@@ -102,7 +108,7 @@ async function initializeBackendSession(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
+        Accept: 'application/json, text/event-stream',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -118,7 +124,9 @@ async function initializeBackendSession(
     });
 
     if (!response.ok) {
-      console.error(`Failed to initialize session with ${server.id}: ${response.status}`);
+      console.error(
+        `Failed to initialize session with ${server.id}: ${response.status}`
+      );
       return null;
     }
 
@@ -153,7 +161,9 @@ async function initializeBackendSession(
 /**
  * Get or create a session for a backend server
  */
-async function getBackendSession(server: BackendServer): Promise<string | null> {
+async function getBackendSession(
+  server: BackendServer
+): Promise<string | null> {
   if (!server.requiresSession) {
     return null;
   }
@@ -182,7 +192,7 @@ async function sendJsonRpcRequest(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json, text/event-stream',
+    Accept: 'application/json, text/event-stream',
   };
 
   if (sessionId) {
@@ -239,7 +249,13 @@ async function sendToBackend(
   timeoutMs = 30000
 ): Promise<unknown> {
   const sessionId = await getBackendSession(server);
-  return sendJsonRpcRequest(server.endpoint, method, params, timeoutMs, sessionId);
+  return sendJsonRpcRequest(
+    server.endpoint,
+    method,
+    params,
+    timeoutMs,
+    sessionId
+  );
 }
 
 // =============================================================================
@@ -254,7 +270,9 @@ interface BackendHealth {
   error?: string;
 }
 
-async function checkBackendHealth(server: BackendServer): Promise<BackendHealth> {
+async function checkBackendHealth(
+  server: BackendServer
+): Promise<BackendHealth> {
   const start = Date.now();
   try {
     await sendToBackend(server, 'ping', {}, 5000);
@@ -281,7 +299,9 @@ async function checkBackendHealth(server: BackendServer): Promise<BackendHealth>
 
 async function fetchToolsFromServer(server: BackendServer): Promise<unknown[]> {
   try {
-    const result = await sendToBackend(server, 'tools/list') as { tools?: unknown[] };
+    const result = (await sendToBackend(server, 'tools/list')) as {
+      tools?: unknown[];
+    };
     return (result.tools || []).map((tool: unknown) => ({
       ...(tool as Record<string, unknown>),
       // Use double underscore as namespace separator (dots not allowed in MCP tool names)
@@ -293,9 +313,13 @@ async function fetchToolsFromServer(server: BackendServer): Promise<unknown[]> {
   }
 }
 
-async function fetchResourcesFromServer(server: BackendServer): Promise<unknown[]> {
+async function fetchResourcesFromServer(
+  server: BackendServer
+): Promise<unknown[]> {
   try {
-    const result = await sendToBackend(server, 'resources/list') as { resources?: unknown[] };
+    const result = (await sendToBackend(server, 'resources/list')) as {
+      resources?: unknown[];
+    };
     return (result.resources || []).map((resource: unknown) => {
       const r = resource as Record<string, unknown>;
       return {
@@ -309,9 +333,13 @@ async function fetchResourcesFromServer(server: BackendServer): Promise<unknown[
   }
 }
 
-async function fetchPromptsFromServer(server: BackendServer): Promise<unknown[]> {
+async function fetchPromptsFromServer(
+  server: BackendServer
+): Promise<unknown[]> {
   try {
-    const result = await sendToBackend(server, 'prompts/list') as { prompts?: unknown[] };
+    const result = (await sendToBackend(server, 'prompts/list')) as {
+      prompts?: unknown[];
+    };
     return (result.prompts || []).map((prompt: unknown) => ({
       ...(prompt as Record<string, unknown>),
       // Use double underscore as namespace separator (dots not allowed in MCP prompt names)
@@ -323,7 +351,10 @@ async function fetchPromptsFromServer(server: BackendServer): Promise<unknown[]>
   }
 }
 
-async function callToolOnServer(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+async function callToolOnServer(
+  toolName: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
   // Split on double underscore (namespace separator)
   const separatorIndex = toolName.indexOf('__');
   if (separatorIndex === -1) {
@@ -360,7 +391,10 @@ async function readResourceFromServer(uri: string): Promise<unknown> {
   return await sendToBackend(server, 'resources/read', { uri: originalUri });
 }
 
-async function getPromptFromServer(promptName: string, args?: Record<string, unknown>): Promise<unknown> {
+async function getPromptFromServer(
+  promptName: string,
+  args?: Record<string, unknown>
+): Promise<unknown> {
   // Split on double underscore (namespace separator)
   const separatorIndex = promptName.indexOf('__');
   if (separatorIndex === -1) {
@@ -475,11 +509,66 @@ function sendSSE(sessionId: string, event: string, data: unknown): boolean {
 // HTTP Request Handler
 // =============================================================================
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Accept, Mcp-Session-Id',
-};
+// =============================================================================
+// Security Middleware
+// =============================================================================
+
+// Rate Limiter (Token Bucket)
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 100; // 100 requests per minute
+const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = ipRequestCounts.get(ip);
+
+  if (!record || now > record.resetTime) {
+    ipRequestCounts.set(ip, {
+      count: 1,
+      resetTime: now + RATE_LIMIT_WINDOW_MS,
+    });
+    return true;
+  }
+
+  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+// Authentication
+const API_KEY = Deno.env.get('MCP_API_KEY');
+
+function isAuthenticated(req: Request): boolean {
+  if (!API_KEY) return true; // Open access if no key configured (dev mode)
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return false;
+
+  const [scheme, token] = authHeader.split(' ');
+  return scheme === 'Bearer' && token === API_KEY;
+}
+
+// CORS Configuration
+const ALLOWED_ORIGINS = [
+  'http://localhost:8000',
+  'http://localhost:1337',
+  'https://mcp-gateway-ui.netlify.app',
+];
+
+function getCorsHeaders(origin: string | null) {
+  const allowOrigin =
+    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, Accept, Mcp-Session-Id',
+    Vary: 'Origin', // Important for caching proxies
+  };
+}
 
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -487,9 +576,29 @@ async function handler(req: Request): Promise<Response> {
 
   metrics.totalRequests++;
 
+  // Security Checks
+  const clientIp = (req.headers.get('x-forwarded-for') || 'unknown').split(
+    ','
+  )[0];
+  const origin = req.headers.get('Origin');
+  const cors = getCorsHeaders(origin);
+
+  // 1. Rate Limiting
+  if (!checkRateLimit(clientIp)) {
+    return new Response('Too Many Requests', { status: 429, headers: cors });
+  }
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: cors });
+  }
+
+  // 2. Authentication (skip for health, metrics, and static assets)
+  // Protected paths: /mcp, /sse, /message
+  const isProtectedPath =
+    path.startsWith('/mcp') || path === '/sse' || path === '/message';
+  if (isProtectedPath && !isAuthenticated(req)) {
+    return new Response('Unauthorized', { status: 401, headers: cors });
   }
 
   try {
@@ -498,26 +607,33 @@ async function handler(req: Request): Promise<Response> {
     const filePath = path === '/' ? '/index.html' : path;
     try {
       const content = await Deno.readTextFile(`./dist${filePath}`);
-      
+
       // Determine content type
       let contentType = 'text/html; charset=utf-8';
-      if (filePath.endsWith('.js')) contentType = 'application/javascript; charset=utf-8';
-      else if (filePath.endsWith('.css')) contentType = 'text/css; charset=utf-8';
+      if (filePath.endsWith('.js'))
+        contentType = 'application/javascript; charset=utf-8';
+      else if (filePath.endsWith('.css'))
+        contentType = 'text/css; charset=utf-8';
       else if (filePath.endsWith('.json')) contentType = 'application/json';
       else if (filePath.endsWith('.svg')) contentType = 'image/svg+xml';
       else if (filePath.endsWith('.png')) contentType = 'image/png';
-      else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) contentType = 'image/jpeg';
-      
+      else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg'))
+        contentType = 'image/jpeg';
+
       return new Response(content, {
-        headers: { 'Content-Type': contentType, ...corsHeaders },
+        headers: { 'Content-Type': contentType, ...cors },
       });
     } catch {
       // File not found, try index.html for SPA routing (unless it's an API route)
-      if (!path.startsWith('/mcp') && !path.startsWith('/health') && !path.startsWith('/metrics')) {
+      if (
+        !path.startsWith('/mcp') &&
+        !path.startsWith('/health') &&
+        !path.startsWith('/metrics')
+      ) {
         try {
           const content = await Deno.readTextFile('./dist/index.html');
           return new Response(content, {
-            headers: { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders },
+            headers: { 'Content-Type': 'text/html; charset=utf-8', ...cors },
           });
         } catch {
           // Fall through to API routes
@@ -535,14 +651,18 @@ async function handler(req: Request): Promise<Response> {
 
       return new Response(
         JSON.stringify({
-          status: allHealthy ? 'healthy' : anyHealthy ? 'degraded' : 'unhealthy',
+          status: allHealthy
+            ? 'healthy'
+            : anyHealthy
+            ? 'degraded'
+            : 'unhealthy',
           server: SERVER_INFO,
           activeSessions: sessions.size,
           backends: backendHealth,
         }),
         {
           status: allHealthy ? 200 : anyHealthy ? 200 : 503,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          headers: { 'Content-Type': 'application/json', ...cors },
         }
       );
     }
@@ -560,11 +680,14 @@ async function handler(req: Request): Promise<Response> {
           activeSessions: sessions.size,
           errorRate:
             metrics.totalRequests > 0
-              ? `${((metrics.totalErrors / metrics.totalRequests) * 100).toFixed(2)}%`
+              ? `${(
+                  (metrics.totalErrors / metrics.totalRequests) *
+                  100
+                ).toFixed(2)}%`
               : '0%',
         }),
         {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          headers: { 'Content-Type': 'application/json', ...cors },
         }
       );
     }
@@ -619,8 +742,8 @@ async function handler(req: Request): Promise<Response> {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          ...corsHeaders,
+          Connection: 'keep-alive',
+          ...cors,
         },
       });
     }
@@ -634,7 +757,7 @@ async function handler(req: Request): Promise<Response> {
           JSON.stringify(jsonRpcError(null, -32600, 'Missing sessionId')),
           {
             status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            headers: { 'Content-Type': 'application/json', ...cors },
           }
         );
       }
@@ -642,10 +765,12 @@ async function handler(req: Request): Promise<Response> {
       const session = sessions.get(sessionId);
       if (!session) {
         return new Response(
-          JSON.stringify(jsonRpcError(null, -32600, 'Invalid or expired session')),
+          JSON.stringify(
+            jsonRpcError(null, -32600, 'Invalid or expired session')
+          ),
           {
             status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            headers: { 'Content-Type': 'application/json', ...cors },
           }
         );
       }
@@ -658,23 +783,24 @@ async function handler(req: Request): Promise<Response> {
 
         // For notifications (no id), just acknowledge
         if (id === undefined || id === null) {
-          return new Response(null, { status: 202, headers: corsHeaders });
+          return new Response(null, { status: 202, headers: cors });
         }
 
         // Send response via SSE stream
         const response = jsonRpcResponse(id, result);
         sendSSE(sessionId, 'message', response);
 
-        return new Response(null, { status: 202, headers: corsHeaders });
+        return new Response(null, { status: 202, headers: cors });
       } catch (error) {
         metrics.totalErrors++;
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
 
         if (id !== undefined && id !== null) {
           sendSSE(sessionId, 'message', jsonRpcError(id, -32603, errorMessage));
         }
 
-        return new Response(null, { status: 202, headers: corsHeaders });
+        return new Response(null, { status: 202, headers: cors });
       }
     }
 
@@ -691,10 +817,12 @@ async function handler(req: Request): Promise<Response> {
 
       if (!contentType.includes('application/json')) {
         return new Response(
-          JSON.stringify(jsonRpcError(null, -32600, 'Content-Type must be application/json')),
+          JSON.stringify(
+            jsonRpcError(null, -32600, 'Content-Type must be application/json')
+          ),
           {
             status: 415,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            headers: { 'Content-Type': 'application/json', ...cors },
           }
         );
       }
@@ -726,7 +854,8 @@ async function handler(req: Request): Promise<Response> {
           }
         } catch (error) {
           metrics.totalErrors++;
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
 
           if (id !== undefined && id !== null) {
             responses.push(jsonRpcError(id, -32603, errorMessage));
@@ -738,7 +867,7 @@ async function handler(req: Request): Promise<Response> {
       const responseHeaders: Record<string, string> = {
         'Content-Type': wantsSSE ? 'text/event-stream' : 'application/json',
         'Cache-Control': 'no-cache',
-        ...corsHeaders,
+        ...cors,
       };
 
       // Include session ID in response header for new sessions
@@ -753,7 +882,9 @@ async function handler(req: Request): Promise<Response> {
           start(controller) {
             // Send each response as an SSE event
             for (const response of responses) {
-              const event = `event: message\ndata: ${JSON.stringify(response)}\n\n`;
+              const event = `event: message\ndata: ${JSON.stringify(
+                response
+              )}\n\n`;
               controller.enqueue(encoder.encode(event));
             }
             controller.close();
@@ -779,10 +910,12 @@ async function handler(req: Request): Promise<Response> {
 
       if (!sessionId) {
         return new Response(
-          JSON.stringify({ error: 'Mcp-Session-Id header required for GET /mcp' }),
+          JSON.stringify({
+            error: 'Mcp-Session-Id header required for GET /mcp',
+          }),
           {
             status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            headers: { 'Content-Type': 'application/json', ...cors },
           }
         );
       }
@@ -828,9 +961,9 @@ async function handler(req: Request): Promise<Response> {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+          Connection: 'keep-alive',
           'Mcp-Session-Id': sessionId,
-          ...corsHeaders,
+          ...cors,
         },
       });
     }
@@ -921,7 +1054,10 @@ async function handler(req: Request): Promise<Response> {
             errors: metrics.totalErrors,
             errorRate:
               metrics.totalRequests > 0
-                ? `${((metrics.totalErrors / metrics.totalRequests) * 100).toFixed(2)}%`
+                ? `${(
+                    (metrics.totalErrors / metrics.totalRequests) *
+                    100
+                  ).toFixed(2)}%`
                 : '0%',
           },
           latency: {
@@ -943,25 +1079,20 @@ async function handler(req: Request): Promise<Response> {
     }
 
     // 404 for unknown paths
-    return new Response(
-      JSON.stringify({ error: 'Not Found', path }),
-      {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ error: 'Not Found', path }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   } catch (error) {
     metrics.totalErrors++;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     console.error('Request error:', errorMessage);
 
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 }
 
