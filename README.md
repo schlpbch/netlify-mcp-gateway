@@ -154,35 +154,33 @@ deno-mcp-gateway/
 
 ## 🚀 Deployment
 
-### Deploy to deno
+### Automatic Deployment (Recommended)
 
-#### Option 1: Automatic Git Deployment (Recommended)
+The project uses GitHub Actions for automated build and deployment:
 
-1. **Push to GitHub**:
+1. **Push to master**:
 
    ```bash
    git push origin master
    ```
 
-2. **deno auto-deploys** from GitHub (if connected)
+2. **GitHub Actions automatically**:
+   - Installs dependencies with pnpm
+   - Builds Astro project (`pnpm astro build`)
+   - Deploys to Deno Deploy
 
-3. **Set environment variables** in deno dashboard:
-   - `JOURNEY_SERVICE_URL`
-   - `SWISS_MOBILITY_URL`
-   - `AAREGURU_URL`
-   - `OPEN_METEO_URL`
+3. **Monitor deployment**: Check the [Actions tab](https://github.com/schlpbch/deno-mcp-gateway/actions) for status
 
-#### Option 2: Manual CLI Deployment
+### Manual Deployment (Development)
+
+For local testing:
 
 ```bash
-# Install deno CLI (one-time)
-# Use deployctl for Deno Deploy (included with Deno)
-
-# Or use npm (if you have Node.js)
-npm install -g deno-cli
+# Build
+pnpm astro build
 
 # Deploy
-deno deploy --prod
+deployctl deploy --project=deno-mcp-gateway main.ts
 ```
 
 ### Deploy to Deno Deploy (Alternative)
