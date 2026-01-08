@@ -1,6 +1,8 @@
 # Netlify MCP Gateway
 
-**Unified MCP Gateway** deployed on Netlify Edge Functions, providing a single entry point for AI assistants to access federated Model Context Protocol (MCP) servers.
+**Unified MCP Gateway** deployed on Netlify Edge Functions, providing a single
+entry point for AI assistants to access federated Model Context Protocol (MCP)
+servers.
 
 ## 🚀 Features
 
@@ -10,6 +12,8 @@
 - **Health Monitoring**: Automatic health checks and failover
 - **Retry Logic**: Exponential backoff for resilient backend calls
 - **TypeScript**: Fully typed with Deno runtime
+- **Mobile-Optimized UI**: Responsive design for all screen sizes (44px touch targets, mobile-first)
+- **Interactive Web Console**: Test MCP endpoints directly from your browser
 
 ## 🏗️ Architecture
 
@@ -46,7 +50,8 @@ Example: `journey.findTrips` routes to Journey Service's `findTrips` tool.
 ## 📋 Prerequisites
 
 - [Deno](https://deno.land/) 1.40+ installed
-- [Netlify CLI](https://docs.netlify.com/cli/get-started/) (optional, only for deployment)
+- [Netlify CLI](https://docs.netlify.com/cli/get-started/) (optional, only for
+  deployment)
 - Netlify account (for production deployment)
 
 ## 🏃 Quick Start
@@ -88,6 +93,7 @@ deno run --allow-net --allow-env --allow-read dev.ts
 ```
 
 The gateway will be available at:
+
 - **API**: `http://localhost:8888/mcp/*`
 - **Web UI**: `http://localhost:8888/`
 - **Health**: `http://localhost:8888/health`
@@ -123,7 +129,7 @@ deno task fmt:check  # Check formatting
 ### Project Structure
 
 ```
-netlify-mcp-gateway/
+deno-mcp-gateway/
 ├── dev.ts                    # Local dev server (Deno HTTP)
 ├── deno.json                 # Deno config & tasks
 ├── netlify.toml              # Netlify deployment config
@@ -152,6 +158,7 @@ netlify-mcp-gateway/
 #### Option 1: Automatic Git Deployment (Recommended)
 
 1. **Push to GitHub**:
+
    ```bash
    git push origin master
    ```
@@ -187,6 +194,7 @@ The project can also be deployed to [Deno Deploy](https://deno.com/deploy):
 4. **Configure environment variables**
 
 Benefits:
+
 - Native Deno platform
 - Global edge network
 - Zero config needed
@@ -204,14 +212,14 @@ With minimal changes, can deploy to Cloudflare Workers:
 
 ### Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `JOURNEY_SERVICE_URL` | Journey Service backend | `https://journey.example.com` |
-| `SWISS_MOBILITY_URL` | Swiss Mobility backend | `https://mobility.example.com` |
-| `AAREGURU_URL` | Aareguru backend | `https://aareguru.example.com` |
-| `OPEN_METEO_URL` | Open Meteo backend | `https://meteo.example.com` |
-| `PORT` | Local dev server port | `8888` (default) |
-| `DEBUG` | Enable debug logging | `true` or `false` |
+| Variable              | Description             | Example                        |
+| --------------------- | ----------------------- | ------------------------------ |
+| `JOURNEY_SERVICE_URL` | Journey Service backend | `https://journey.example.com`  |
+| `SWISS_MOBILITY_URL`  | Swiss Mobility backend  | `https://mobility.example.com` |
+| `AAREGURU_URL`        | Aareguru backend        | `https://aareguru.example.com` |
+| `OPEN_METEO_URL`      | Open Meteo backend      | `https://meteo.example.com`    |
+| `PORT`                | Local dev server port   | `8888` (default)               |
+| `DEBUG`               | Enable debug logging    | `true` or `false`              |
 
 ### Cache Configuration
 
@@ -220,7 +228,7 @@ Edit [src/config.ts](src/config.ts):
 ```typescript
 export const loadConfig = (): GatewayConfig => ({
   cache: {
-    ttlMs: 5 * 60 * 1000,  // 5 minutes
+    ttlMs: 5 * 60 * 1000, // 5 minutes
     maxEntries: 1000,
   },
   // ...
@@ -275,7 +283,7 @@ deno fmt src/ netlify/
 ## 📁 Project Structure
 
 ```text
-netlify-mcp-gateway/
+deno-mcp-gateway/
 ├── netlify/
 │   └── edge-functions/
 │       └── mcp.ts              # Main edge function

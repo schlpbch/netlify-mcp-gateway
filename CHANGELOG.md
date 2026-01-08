@@ -5,6 +5,36 @@ All notable changes to the Netlify MCP Gateway project will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-08
+
+### Added
+
+- **Mobile-Optimized UI Design**: Responsive layout improvements for small screens
+  - Custom `xs` breakpoint (475px) for extra-small devices
+  - Proper touch targets (44px minimum) for mobile interaction
+  - Responsive grid layouts for quick action buttons
+  - Improved typography scaling for all screen sizes
+  - Optimized spacing and padding for mobile devices
+  - Better header layout with vertical stacking on phones
+  - Compact service cards for better mobile viewing
+  - Touch-friendly form elements with reduced friction
+
+### Changed
+
+- **UI/UX Improvements**:
+  - Simplified button text on mobile (e.g., "Tools" instead of "List Tools")
+  - Stacked layout for API Tester form on mobile
+  - Improved status indicator display on small screens
+  - Reduced padding and margins for mobile efficiency
+  - Better text truncation handling for long service names
+
+### Technical
+
+- Added smooth scrolling for mobile devices
+- Prevented iOS input zoom with `-webkit-text-size-adjust`
+- Improved tap highlight colors for better mobile feedback
+- Added touch manipulation for better scrolling performance
+
 ## [0.2.0] - 2026-01-07
 
 ### Changed - Complete Platform Migration

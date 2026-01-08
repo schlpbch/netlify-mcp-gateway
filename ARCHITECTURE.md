@@ -1,12 +1,16 @@
 # MCP Gateway Architecture
 
-This document describes the architecture, design decisions, and implementation details of the MCP Gateway.
+This document describes the architecture, design decisions, and implementation
+details of the MCP Gateway.
 
 ## Overview
 
-The MCP Gateway is a globally-distributed edge function that serves as a unified entry point for MCP protocol requests. Deployed on **Netlify Edge Functions**, it provides:
+The MCP Gateway is a globally-distributed edge function that serves as a unified
+entry point for MCP protocol requests. Deployed on **Netlify Edge Functions**,
+it provides:
 
-- **Global Low-Latency Access**: Requests served from 100+ edge locations worldwide
+- **Global Low-Latency Access**: Requests served from 100+ edge locations
+  worldwide
 - **Type-Safe TypeScript**: Full Deno runtime with TypeScript support
 - **Lightweight Routing**: Framework-free handler pattern for minimal overhead
 - **Zero Ops**: Fully managed infrastructure with automatic scaling
@@ -112,7 +116,7 @@ const routes: Route[] = [
 export const listTools = async (gateway: Gateway): Promise<Tool[]> => {
   const servers = gateway.registry.listServers();
   const tools: Tool[] = [];
-  
+
   for (const server of servers) {
     const serverTools = await gateway.client.listTools(server);
     for (const tool of serverTools) {
@@ -122,7 +126,7 @@ export const listTools = async (gateway: Gateway): Promise<Tool[]> => {
       });
     }
   }
-  
+
   return tools;
 };
 
@@ -133,7 +137,7 @@ export const callTool = async (
 ): Promise<unknown> => {
   const [serverId, bareToolName] = toolName.split('.', 2);
   const server = gateway.registry.getServer(serverId);
-  
+
   return gateway.client.callTool(server, bareToolName, input);
 };
 ```
@@ -161,7 +165,7 @@ export const callTool = async (
 ): Promise<unknown> => {
   const url = new URL(server.endpoint);
   url.pathname = '/mcp/tools/call';
-  
+
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const response = await fetch(url.toString(), {
@@ -169,13 +173,15 @@ export const callTool = async (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: toolName, input }),
       });
-      
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     } catch (err) {
       if (attempt === retries - 1) throw err;
       // Exponential backoff: 100ms, 200ms, 400ms
-      await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
+      await new Promise((resolve) =>
+        setTimeout(resolve, 100 * Math.pow(2, attempt))
+      );
     }
   }
 };
@@ -185,12 +191,12 @@ export const checkHealth = async (
 ): Promise<ServerHealth> => {
   const url = new URL(server.endpoint);
   url.pathname = '/health';
-  
+
   try {
     const start = Date.now();
     const response = await fetch(url.toString());
     const latency = Date.now() - start;
-    
+
     return {
       status: response.ok ? 'HEALTHY' : 'DEGRADED',
       latency,
@@ -233,25 +239,25 @@ export interface ServerRegistration {
 
 export class ServerRegistry {
   private servers = new Map<string, ServerRegistration>();
-  
+
   register(server: ServerRegistration): void {
     this.servers.set(server.id, server);
   }
-  
+
   listServers(): ServerRegistration[] {
     return Array.from(this.servers.values());
   }
-  
+
   getHealthyServers(): ServerRegistration[] {
-    return this.listServers().filter(s => s.health.status === 'HEALTHY');
+    return this.listServers().filter((s) => s.health.status === 'HEALTHY');
   }
-  
+
   getServer(id: string): ServerRegistration {
     const server = this.servers.get(id);
     if (!server) throw new Error(`Server not found: ${id}`);
     return server;
   }
-  
+
   updateHealth(id: string, health: ServerHealth): void {
     const server = this.servers.get(id);
     if (server) {
@@ -265,33 +271,34 @@ export class ServerRegistry {
 
 **Purpose**: Response caching with TTL management
 
-**Note**: Currently implemented as in-memory Map. Can be extended with Netlify Blobs or Redis.
+**Note**: Currently implemented as in-memory Map. Can be extended with Netlify
+Blobs or Redis.
 
 **Implementation**:
 
 ```typescript
 export class ResponseCache {
   private cache = new Map<string, { data: unknown; expires: number }>();
-  
+
   get(key: string): unknown | undefined {
     const entry = this.cache.get(key);
     if (!entry) return undefined;
-    
+
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       return undefined;
     }
-    
+
     return entry.data;
   }
-  
+
   set(key: string, data: unknown, ttlMs: number): void {
     this.cache.set(key, {
       data,
       expires: Date.now() + ttlMs,
     });
   }
-  
+
   generateKey(operation: string, name: string, input: unknown): string {
     const hash = new TextEncoder().encode(
       `${operation}:${name}:${JSON.stringify(input)}`
@@ -308,13 +315,14 @@ export class ResponseCache {
 - Add cache invalidation strategies
 - Support Redis for multi-instance deployments
 
+              properties.getRouting().getRetry().getBackoffMultiplier(),
+              properties.getRouting().getRetry().getMaxDelay()
+          )
+          .build();
 
-            properties.getRouting().getRetry().getBackoffMultiplier(),
-            properties.getRouting().getRetry().getMaxDelay()
-        )
-        .build();
-}
-```
+  }
+
+````
 
 ### 7. ServerHealthMonitor
 ## Domain Models
@@ -329,7 +337,7 @@ export interface ServerRegistration {
   health: ServerHealth;
   registeredAt?: Date;
 }
-```
+````
 
 ### ServerHealth (src/types/server.ts)
 
@@ -368,7 +376,8 @@ export interface Prompt {
 
 ### 1. Netlify Edge Functions
 
-**Decision**: Deploy on Netlify Edge Functions instead of traditional container/VM infrastructure
+**Decision**: Deploy on Netlify Edge Functions instead of traditional
+container/VM infrastructure
 
 **Rationale**:
 
@@ -429,7 +438,8 @@ export interface Prompt {
 
 ### 4. Namespace Prefixing
 
-**Decision**: Add server ID prefix to tool/prompt names (e.g., `journey.findTrips`)
+**Decision**: Add server ID prefix to tool/prompt names (e.g.,
+`journey.findTrips`)
 
 **Rationale**:
 
@@ -530,7 +540,8 @@ Set in Netlify dashboard > Site settings > Build & deploy > Environment:
 
 - **Cached Response**: ~50-100ms (edge location to user)
 - **Uncached Response**: ~200-500ms (edge → backend → edge)
-- **Edge Location Benefit**: ~10-100ms faster than traditional single-region deployment
+- **Edge Location Benefit**: ~10-100ms faster than traditional single-region
+  deployment
 
 ### Throughput
 
@@ -564,20 +575,24 @@ See [Netlify Pricing](https://www.netlify.com/pricing/) for details.
 ### Recommendations for Production
 
 1. **Authentication**:
+
    - Add API key header validation
    - Implement OAuth if needed
    - Use Netlify Functions for auth middleware
 
 2. **Rate Limiting**:
+
    - Implement per-IP rate limiting
    - Use Netlify Functions or external service
 
 3. **Input Validation**:
+
    - Validate request schemas
    - Sanitize user input
    - Implement timeout limits
 
 4. **Secrets Management**:
+
    - Use Netlify environment variables for backend URLs
    - Never commit secrets to git
    - Use separate credentials per environment
@@ -638,9 +653,10 @@ if (Deno.env.get('DEBUG')) {
 ### Short Term (Q1 2026)
 
 1. ✅ Add interactive web UI for testing
-2. ⬜ Implement request validation schemas
-3. ⬜ Add basic rate limiting
-4. ⬜ Set up monitoring dashboard
+2. ✅ Mobile-optimized UI design for small screens
+3. ⬜ Implement request validation schemas
+4. ⬜ Add basic rate limiting
+5. ⬜ Set up monitoring dashboard
 
 ### Medium Term (Q2 2026)
 
@@ -662,7 +678,9 @@ if (Deno.env.get('DEBUG')) {
 - [Netlify Edge Functions](https://docs.netlify.com/edge-functions/overview/)
 - [Deno Runtime](https://deno.land/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Project Repository](https://github.com/schlpbch/netlify-mcp-gateway)
-- [Live Deployment](https://netliy-mcp-gateway.netlify.app)
-````
+- [Project Repository](https://github.com/schlpbch/deno-mcp-gateway)
+- [Live Deployment](https://netliy-deno-mcp-gateway.netlify.app)
+
+```
 - [Google Cloud Run](https://cloud.google.com/run)
+```
