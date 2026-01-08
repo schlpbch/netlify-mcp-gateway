@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import QuickActions from '../components/QuickActions.astro';
+import ResourcesReader from '../components/ResourcesReader.astro';
+import Services from '../components/Services.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base title="MCP Gateway">
+  <Header title="MCP Gateway" />
+  
+  <main class="min-h-[calc(100vh-120px)] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900">
+    <QuickActions />
+    <ResourcesReader />
+    <Services />
+  </main>
+  
+  <Footer />
+</Base>

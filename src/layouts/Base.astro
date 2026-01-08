@@ -1,0 +1,65 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = 'MCP Gateway', description = 'Model Context Protocol Gateway' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    
+    <!-- Tailwind CSS -->
+    <script>
+      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
+    <style is:global>
+      @import url('https://cdn.tailwindcss.com');
+      
+      :root {
+        --accent: #00c7b7;
+      }
+      
+      .dark {
+        color-scheme: dark;
+      }
+      
+      body {
+        @apply bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors;
+      }
+      
+      .text-accent {
+        color: var(--accent);
+      }
+      
+      .bg-accent {
+        background-color: var(--accent);
+      }
+      
+      .border-accent {
+        border-color: var(--accent);
+      }
+      
+      .ring-accent {
+        --tw-ring-color: var(--accent);
+      }
+      
+      .focus-ring:focus {
+        @apply outline-none ring-2 ring-accent ring-offset-2 dark:ring-offset-slate-950;
+      }
+    </style>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

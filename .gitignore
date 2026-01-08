@@ -1,6 +1,11 @@
 # deno
 .deno/
 
+# Astro
+dist/
+.astro/
+node_modules/
+
 # Environment
 .env
 .env.local
@@ -22,6 +27,4 @@ Thumbs.db
 *.swo
 
 # Build outputs (if any)
-dist/
 build/
-node_modules

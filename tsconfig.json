@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "jsxImportSource": "astro",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "strictNullChecks": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["astro/client"]
+  },
+  "extends": "astro/tsconfigs/strict"
+}

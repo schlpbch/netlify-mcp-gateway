@@ -1,0 +1,118 @@
+---
+// QuickActions.astro
+---
+
+<section class="py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+  <div class="space-y-4">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Quick Actions</h2>
+    
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <!-- Tools -->
+      <button 
+        onclick="fetchAndShow('/mcp/tools/list', 'Tools')"
+        class="group p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-95"
+        title="List all tools"
+      >
+        <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 flex items-center justify-center mx-auto mb-2 transition-colors">
+          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+          </svg>
+        </div>
+        <span class="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">Tools</span>
+      </button>
+
+      <!-- Resources -->
+      <button 
+        onclick="document.getElementById('resources-section')?.scrollIntoView({ behavior: 'smooth' })"
+        class="group p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-95"
+        title="Read resources"
+      >
+        <div class="w-8 h-8 rounded-lg bg-accent/10 group-hover:bg-accent/20 flex items-center justify-center mx-auto mb-2 transition-colors">
+          <svg class="w-5 h-5 text-accent" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <span class="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">Resources</span>
+      </button>
+
+      <!-- Prompts -->
+      <button 
+        onclick="fetchAndShow('/mcp/prompts/list', 'Prompts')"
+        class="group p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-95"
+        title="List all prompts"
+      >
+        <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 flex items-center justify-center mx-auto mb-2 transition-colors">
+          <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+          </svg>
+        </div>
+        <span class="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">Prompts</span>
+      </button>
+
+      <!-- Health -->
+      <button 
+        onclick="fetchAndShow('/health', 'Health Status')"
+        class="group p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-95"
+        title="Check health status"
+      >
+        <div class="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-800/50 flex items-center justify-center mx-auto mb-2 transition-colors">
+          <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m7 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <span class="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">Health</span>
+      </button>
+
+      <!-- Metrics -->
+      <button 
+        onclick="fetchAndShow('/metrics', 'Metrics')"
+        class="group p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-95"
+        title="View metrics"
+      >
+        <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-800/50 flex items-center justify-center mx-auto mb-2 transition-colors">
+          <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+        </div>
+        <span class="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">Metrics</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Modal for showing results -->
+<div id="result-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="closeModal()">
+  <div class="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-auto" onclick="event.stopPropagation()">
+    <div class="p-4 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white"></h3>
+        <button onclick="closeModal()" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <pre id="modal-content" class="bg-slate-900 dark:bg-slate-950 text-slate-100 p-3 rounded overflow-auto text-sm"><code></code></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+  function closeModal() {
+    document.getElementById('result-modal')!.classList.add('hidden');
+  }
+
+  async function fetchAndShow(url: string, title: string) {
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      const modal = document.getElementById('result-modal')!;
+      document.getElementById('modal-title')!.textContent = title;
+      document.getElementById('modal-content')!.textContent = JSON.stringify(data, null, 2);
+      modal.classList.remove('hidden');
+    } catch (error) {
+      alert(`Error fetching ${title}: ${error}`);
+    }
+  }
+</script>

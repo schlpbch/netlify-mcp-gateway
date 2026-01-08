@@ -1,0 +1,183 @@
+---
+// ResourcesReader.astro - Interactive component for reading resources
+---
+
+<section id="resources-section" class="py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Resources Reader</h2>
+      <p class="text-slate-600 dark:text-slate-400">Select and read resources from available services</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Resources Selector -->
+      <div class="space-y-4">
+        <div>
+          <label for="resource-select" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Available Resources
+          </label>
+          <select 
+            id="resource-select" 
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus-ring focus:border-transparent transition-colors"
+          >
+            <option value="">Loading resources...</option>
+          </select>
+        </div>
+
+        <!-- Resource Details -->
+        <div id="resource-details" class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
+          <div>
+            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">Name</label>
+            <p id="resource-name" class="text-slate-900 dark:text-white font-semibold">-</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">Description</label>
+            <p id="resource-description" class="text-slate-700 dark:text-slate-300 text-sm">-</p>
+          </div>
+          <button 
+            id="read-resource-btn"
+            disabled
+            class="w-full px-4 py-2 rounded-lg bg-accent text-white font-medium hover:bg-accent/90 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors"
+          >
+            Read Resource
+          </button>
+        </div>
+      </div>
+
+      <!-- Result Display -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Result
+          </label>
+          <div id="resource-result-status" class="mb-2 text-sm text-slate-600 dark:text-slate-400">
+            Ready
+          </div>
+          <div class="relative">
+            <pre id="resource-result" class="p-4 rounded-lg bg-slate-900 dark:bg-slate-950 text-slate-100 overflow-auto max-h-96 text-sm"><code>-</code></pre>
+            <button
+              id="copy-result-btn"
+              class="absolute top-2 right-2 p-2 rounded bg-slate-700 hover:bg-slate-600 text-slate-100 transition-colors"
+              title="Copy to clipboard"
+              style="display: none;"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Store resources list for quick access
+  let _resourcesList: any[] = [];
+
+  async function initResourcesDropdown() {
+    const select = document.getElementById('resource-select') as HTMLSelectElement;
+    
+    try {
+      const response = await fetch('/mcp/resources/list');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        select.innerHTML = '<option value="">Failed to load resources</option>';
+        return;
+      }
+
+      _resourcesList = data.resources || [];
+      
+      select.innerHTML = '<option value="">Select a resource...</option>';
+      
+      _resourcesList.forEach((resource, index) => {
+        const option = document.createElement('option');
+        option.value = index.toString();
+        option.textContent = `${resource.name} (${resource.uri})`;
+        select.appendChild(option);
+      });
+
+      if (_resourcesList.length > 0) {
+        const resourceCount = document.createElement('option');
+        resourceCount.disabled = true;
+        resourceCount.textContent = `${_resourcesList.length} resources available`;
+      }
+    } catch (error) {
+      console.error('Failed to fetch resources:', error);
+      select.innerHTML = '<option value="">Error loading resources</option>';
+    }
+  }
+
+  function showResourceDetails(resource: any) {
+    document.getElementById('resource-name')!.textContent = resource.name;
+    document.getElementById('resource-description')!.textContent = resource.description || '-';
+    document.getElementById('read-resource-btn')!.disabled = false;
+    document.getElementById('resource-result')!.textContent = '-';
+    document.getElementById('resource-result-status')!.textContent = 'Ready';
+    document.getElementById('copy-result-btn')!.style.display = 'none';
+  }
+
+  async function readResource() {
+    const select = document.getElementById('resource-select') as HTMLSelectElement;
+    const selectedIndex = parseInt(select.value);
+    
+    if (isNaN(selectedIndex)) return;
+    
+    const resource = _resourcesList[selectedIndex];
+    if (!resource) return;
+    
+    const resultEl = document.getElementById('resource-result')!;
+    const statusEl = document.getElementById('resource-result-status')!;
+    
+    statusEl.textContent = 'Loading...';
+    
+    try {
+      const response = await fetch('/mcp/resources/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: resource.uri })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        let content = data.contents || data.content || data;
+        resultEl.textContent = typeof content === 'string' 
+          ? content 
+          : JSON.stringify(content, null, 2);
+        statusEl.textContent = '✓ Success';
+        statusEl.className = 'text-accent text-sm font-medium';
+        document.getElementById('copy-result-btn')!.style.display = 'block';
+      } else {
+        resultEl.textContent = `Error: ${data.error || 'Unknown error'}`;
+        statusEl.textContent = '✗ Failed';
+        statusEl.className = 'text-red-600 dark:text-red-400 text-sm font-medium';
+      }
+    } catch (error) {
+      resultEl.textContent = `Error: ${error}`;
+      statusEl.textContent = '✗ Error';
+      statusEl.className = 'text-red-600 dark:text-red-400 text-sm font-medium';
+    }
+  }
+
+  // Initialize on page load
+  initResourcesDropdown();
+
+  // Event listeners
+  const select = document.getElementById('resource-select') as HTMLSelectElement;
+  select?.addEventListener('change', () => {
+    const selectedIndex = parseInt(select.value);
+    if (!isNaN(selectedIndex) && _resourcesList[selectedIndex]) {
+      showResourceDetails(_resourcesList[selectedIndex]);
+    }
+  });
+
+  document.getElementById('read-resource-btn')?.addEventListener('click', readResource);
+  
+  document.getElementById('copy-result-btn')?.addEventListener('click', () => {
+    const text = (document.getElementById('resource-result') as HTMLElement)?.textContent || '';
+    navigator.clipboard.writeText(text);
+  });
+</script>
