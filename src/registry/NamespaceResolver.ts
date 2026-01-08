@@ -2,12 +2,13 @@
  * Namespace resolution utilities for routing requests to backend servers
  */
 
-const NAMESPACE_MAP: Record<string, string> = {
+export const NAMESPACE_MAP: Record<string, string> = {
   journey: 'journey-service-mcp',
   mobility: 'swiss-mobility-mcp',
   aareguru: 'aareguru-mcp',
   meteo: 'open-meteo-mcp',
   weather: 'open-meteo-mcp',
+  about: 'journey-service-mcp', // About resource is provided by journey service
 };
 
 /**

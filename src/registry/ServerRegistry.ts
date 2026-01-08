@@ -4,7 +4,7 @@ import type {
   ServerCapabilities,
 } from '../types/server.ts';
 import { HealthStatus } from '../types/server.ts';
-import { extractServerId } from './NamespaceResolver.ts';
+import { extractServerId, NAMESPACE_MAP } from './NamespaceResolver.ts';
 
 /**
  * Thread-safe server registry managing backend MCP server registrations
@@ -87,13 +87,17 @@ export class ServerRegistry {
    * Resolve which server provides a given resource
    */
   resolveResourceServer(uri: string): ServerRegistration {
-    // Extract server ID from URI prefix (e.g., "journey://..." -> "journey-service-mcp")
-    const serverId = extractServerId(uri);
+    // Extract scheme from URI (e.g., "about://service" -> "about", "journey://trips" -> "journey")
+    const schemeMatch = uri.match(/^([^:]+):/);
+    const scheme = schemeMatch ? schemeMatch[1] : uri;
+    
+    // Map scheme to server ID
+    const serverId = NAMESPACE_MAP[scheme] || `${scheme}-mcp`;
     const server = this.servers.get(serverId);
 
     if (!server) {
       throw new Error(
-        `Server not found for resource: ${uri} (resolved to ${serverId})`
+        `Server not found for resource: ${uri} (scheme: ${scheme}, resolved to ${serverId})`
       );
     }
 

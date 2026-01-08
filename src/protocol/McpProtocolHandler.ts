@@ -108,16 +108,23 @@ export class McpProtocolHandler {
 
     const servers = this.registry.listHealthyServers();
 
-    const resources = await aggregateFromServers<McpResource>(
-      servers,
-      async (server) => {
-        const response = await this.client.listResources(server);
-        return response?.resources || [];
-      },
-      'resources'
-    );
+    // Aggregate resources from all servers, preserving the original URI
+    const allResources: McpResource[] = [];
 
-    const result = { resources };
+    for (const server of servers) {
+      try {
+        const response = await this.client.listResources(server);
+        if (response?.resources) {
+          // Keep resources as-is without modifying URIs
+          allResources.push(...response.resources);
+        }
+      } catch (error) {
+        console.error(`Failed to get resources from server ${server.id}:`, error);
+        // Continue with other servers
+      }
+    }
+
+    const result = { resources: allResources };
 
     // Cache the result
     if (this.cache) {
