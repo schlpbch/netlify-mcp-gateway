@@ -648,15 +648,99 @@ if (Deno.env.get('DEBUG')) {
 - Implement custom metrics
 - Set up analytics dashboard
 
+## Middleware & Security
+
+### Rate Limiting (src/middleware/RateLimiter.ts)
+
+**Purpose**: Prevent abuse and ensure fair resource allocation
+
+**Features**:
+
+- Per-IP rate limiting with configurable limits
+- Configurable time windows (default: 60 seconds)
+- Configurable request limits (default: 100 requests/minute)
+- Automatic cleanup of expired entries
+- Returns `429 Too Many Requests` when limit exceeded
+- Includes `Retry-After` and rate limit headers in response
+
+**Usage**:
+
+```typescript
+const rateLimiter = createRateLimitMiddleware({
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 100, // 100 requests per minute
+});
+```
+
+### Request Validation (src/validation/RequestValidator.ts)
+
+**Purpose**: Validate incoming requests before processing
+
+**Features**:
+
+- Type-safe validation for tool calls, resources, and prompts
+- Schema validation with detailed error messages
+- JSON parsing with error handling
+- Tool name format validation (namespace.toolname)
+- URI validation for resource requests
+- Argument object validation
+
+**Validation Functions**:
+
+```typescript
+validateToolCall(data) // Validates tool call requests
+validateResourceRead(data) // Validates resource read requests
+validatePromptGet(data) // Validates prompt requests
+```
+
+## Monitoring & Observability
+
+### Metrics Collection (src/monitoring/MetricsCollector.ts)
+
+**Purpose**: Collect real-time gateway metrics for monitoring
+
+**Metrics Collected**:
+
+- Total requests and errors
+- Cache hit rate
+- Average response latency
+- Requests and errors per minute
+- Gateway uptime
+- Backend service health (per-server)
+- Backend success rates and latencies
+
+**Access Metrics**:
+
+```typescript
+const metrics = globalMetrics.getMetrics();
+const summary = globalMetrics.getSummary();
+```
+
+### Monitoring Dashboard (public/dashboard.html)
+
+**Purpose**: Visual interface for monitoring gateway health
+
+**Features**:
+
+- Real-time metrics display
+- Backend service health status
+- Error rate tracking
+- Cache hit rate monitoring
+- Response latency metrics
+- Auto-refresh every 10 seconds
+- Responsive mobile-friendly design
+
+**Access**: Visit `/dashboard` in your browser
+
 ## Future Enhancements
 
 ### Short Term (Q1 2026)
 
 1. ✅ Add interactive web UI for testing
 2. ✅ Mobile-optimized UI design for small screens
-3. ⬜ Implement request validation schemas
-4. ⬜ Add basic rate limiting
-5. ⬜ Set up monitoring dashboard
+3. ✅ Implement request validation schemas
+4. ✅ Add basic rate limiting
+5. ✅ Set up monitoring dashboard
 
 ### Medium Term (Q2 2026)
 

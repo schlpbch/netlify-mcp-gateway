@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Gateway - Monitoring Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            accent: '#00c7b7',
+            'accent-dark': '#00a99d',
+            'accent-light': '#00e6d3',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    .dark .gradient-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    }
+
+    .gradient-bg {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .dark .glass {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-full text-slate-800 dark:text-slate-200 antialiased">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+        📊 Monitoring Dashboard
+      </h1>
+      <p class="text-slate-600 dark:text-slate-400">
+        Real-time gateway metrics and backend health status
+      </p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="stat-card glass rounded-lg p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Total Requests</p>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2" id="total-requests">0</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+            <span class="text-2xl">📈</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card glass rounded-lg p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Error Rate</p>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2" id="error-rate">0%</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <span class="text-2xl">⚠️</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card glass rounded-lg p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Cache Hit Rate</p>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2" id="cache-hit">0%</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <span class="text-2xl">⚡</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card glass rounded-lg p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Avg Latency</p>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2" id="avg-latency">0ms</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <span class="text-2xl">🚀</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backend Health -->
+    <div class="glass rounded-lg p-6">
+      <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-4">
+        Backend Services Health
+      </h2>
+      <div class="space-y-3" id="backend-list">
+        <div class="text-slate-500 dark:text-slate-400">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Last Update -->
+    <div class="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+      Last updated: <span id="last-update">--:--:--</span>
+    </div>
+  </div>
+
+  <script>
+    const updateMetrics = async () => {
+      try {
+        const response = await fetch('/metrics');
+        if (!response.ok) throw new Error('Failed to fetch metrics');
+
+        const data = await response.json();
+        const gateway = data.gateway;
+        const backends = data.backends || [];
+
+        // Update stats
+        document.getElementById('total-requests').textContent = gateway.totalRequests.toLocaleString();
+        document.getElementById('error-rate').textContent = (
+          gateway.errorRate || 0
+        ).toFixed(1) + '%';
+        document.getElementById('cache-hit').textContent = gateway.cacheHitRate;
+        document.getElementById('avg-latency').textContent = gateway.averageLatencyMs + 'ms';
+
+        // Update backends
+        const backendList = document.getElementById('backend-list');
+        backendList.innerHTML = backends
+          .map((backend) => {
+            const statusColor = {
+              HEALTHY: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+              DEGRADED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+              DOWN: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+            }[backend.status];
+
+            return `
+              <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="font-medium text-slate-900 dark:text-white">${backend.name}</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Requests: ${backend.totalRequests} | Success Rate: ${backend.successRate} | Latency: ${backend.averageLatencyMs}ms
+                    </p>
+                  </div>
+                  <span class="px-3 py-1 rounded-full text-sm font-medium ${statusColor}">
+                    ${backend.status}
+                  </span>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+
+        // Update timestamp
+        const now = new Date();
+        document.getElementById('last-update').textContent = now.toLocaleTimeString();
+      } catch (error) {
+        console.error('Error updating metrics:', error);
+      }
+    };
+
+    // Initial update
+    updateMetrics();
+
+    // Auto-refresh every 10 seconds
+    setInterval(updateMetrics, 10000);
+  </script>
+</body>
+
+</html>
