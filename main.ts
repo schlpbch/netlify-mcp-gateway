@@ -40,6 +40,13 @@ const BACKEND_SERVERS: BackendServer[] = [
     endpoint: Deno.env.get('AAREGURU_URL') || 'https://aareguru.fastmcp.app/mcp',
     requiresSession: false,
   },
+  {
+    id: 'open-meteo',
+    name: 'OpenMeteo',
+    endpoint: Deno.env.get('OPEN_METEO_URL') ||
+      'https://open-meteo-mcp.fastmcp.app/mcp',
+    requiresSession: false,
+  },
 ];
 
 // Backend session storage (for servers that require Mcp-Session-Id)
