@@ -1073,9 +1073,10 @@ export async function handler(req: Request): Promise<Response> {
 // Server Startup
 // =============================================================================
 
-const port = parseInt(Deno.env.get('PORT') || '8000');
+if (import.meta.main) {
+  const port = parseInt(Deno.env.get('PORT') || '8000');
 
-console.log(`
+  console.log(`
 ========================================
   MCP Gateway Server v${SERVER_INFO.version}
 ========================================
@@ -1090,4 +1091,5 @@ ${BACKEND_SERVERS.map((s) => `    - ${s.name} (${s.id})`).join('\n')}
 ========================================
 `);
 
-Deno.serve({ port }, handler);
+  Deno.serve({ port }, handler);
+}
