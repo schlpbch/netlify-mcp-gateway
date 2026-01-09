@@ -57,7 +57,7 @@ const backendSessions = new Map<string, string>();
 
 const SERVER_INFO = {
   name: 'mcp-gateway',
-  version: '2.0.0',
+  version: '0.9.1',
   protocolVersion: '2024-11-05',
 };
 
